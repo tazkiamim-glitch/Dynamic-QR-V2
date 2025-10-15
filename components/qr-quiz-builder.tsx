@@ -125,7 +125,8 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
   }
 
   const saveMeta = () => {
-    if (!name || !classVal || !program || !phase || !subject || !chapterId) {
+    // AP (program) and Phase are not required anymore
+    if (!name || !classVal || !subject || !chapterId) {
       alert("Fill all required fields.")
       return
     }

@@ -331,60 +331,64 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                 </Card>
               )}
 
-              {/* Quarter tabs */}
-              <div className="flex justify-around border-b mb-4">
-                {phases.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => {
-                      setSelectedPhase(p)
-                      setOpenChapterId(null)
-                    }}
-                    className={`tab px-2 py-3 text-sm font-medium border-b-2 ${
-                      selectedPhase === p ? "text-pink-600 border-pink-600" : "text-muted-foreground border-transparent"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-
-              {/* Chapters accordion within the subject screen */}
-              <Accordion type="single" collapsible value={openChapterId || undefined} onValueChange={(v) => setOpenChapterId(v)}>
-                {chapters
-                  .filter((ch) => ch.subject === selectedSubject && ch.phase === selectedPhase)
-                  .map((chapter) => (
-                    <AccordionItem value={chapter.id} key={chapter.id}>
-                      <AccordionTrigger
-                        id={`chapter-${chapter.id}`}
-                        className={`text-sm ${
-                          highlightedChapter === chapter.id ? "border-2 border-purple-600 rounded-md" : ""
+              {!activeQuiz && (
+                <>
+                  {/* Quarter tabs */}
+                  <div className="flex justify-around border-b mb-4">
+                    {phases.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          setSelectedPhase(p)
+                          setOpenChapterId(null)
+                        }}
+                        className={`tab px-2 py-3 text-sm font-medium border-b-2 ${
+                          selectedPhase === p ? "text-pink-600 border-pink-600" : "text-muted-foreground border-transparent"
                         }`}
                       >
-                        {chapter.name}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <Card className="p-4 mb-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="font-medium">পড়াশোনা শুরু</div>
-                            <Button size="sm" className="bg-purple-600 hover:bg-purple-700">Start</Button>
-                          </div>
-                          <div className="text-sm text-muted-foreground">Resources for this chapter will appear here...</div>
-                        </Card>
-                        {quizResultsByChapter[chapter.id] && (
-                          <Card className="p-4 mb-3">
-                            <div className="flex items-center justify-between">
-                              <div className="text-sm">QR Quiz Result: {quizResultsByChapter[chapter.id].score}/{quizResultsByChapter[chapter.id].total}</div>
-                              {quizResultsByChapter[chapter.id].solutionUrl && (
-                                <Button size="sm" variant="outline" onClick={() => window.open(quizResultsByChapter[chapter.id].solutionUrl!, "_blank")}>View Solutions</Button>
-                              )}
-                            </div>
-                          </Card>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-              </Accordion>
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Chapters accordion within the subject screen */}
+                  <Accordion type="single" collapsible value={openChapterId || undefined} onValueChange={(v) => setOpenChapterId(v)}>
+                    {chapters
+                      .filter((ch) => ch.subject === selectedSubject && ch.phase === selectedPhase)
+                      .map((chapter) => (
+                        <AccordionItem value={chapter.id} key={chapter.id}>
+                          <AccordionTrigger
+                            id={`chapter-${chapter.id}`}
+                            className={`text-sm ${
+                              highlightedChapter === chapter.id ? "border-2 border-purple-600 rounded-md" : ""
+                            }`}
+                          >
+                            {chapter.name}
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <Card className="p-4 mb-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="font-medium">পড়াশোনা শুরু</div>
+                                <Button size="sm" className="bg-purple-600 hover:bg-purple-700">Start</Button>
+                              </div>
+                              <div className="text-sm text-muted-foreground">Resources for this chapter will appear here...</div>
+                            </Card>
+                            {quizResultsByChapter[chapter.id] && (
+                              <Card className="p-4 mb-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm">QR Quiz Result: {quizResultsByChapter[chapter.id].score}/{quizResultsByChapter[chapter.id].total}</div>
+                                  {quizResultsByChapter[chapter.id].solutionUrl && (
+                                    <Button size="sm" variant="outline" onClick={() => window.open(quizResultsByChapter[chapter.id].solutionUrl!, "_blank")}>View Solutions</Button>
+                                  )}
+                                </div>
+                              </Card>
+                            )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                  </Accordion>
+                </>
+              )}
             </>
           )}
         </div>

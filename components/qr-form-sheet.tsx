@@ -174,6 +174,14 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
   // QR type supports only Chapter and QR Quiz
 
   const handleSubmit = () => {
+    if (!editingQR && !manualQrId.trim()) {
+      alert("Please provide a QR ID")
+      return
+    }
+    if (!name.trim()) {
+      alert("Please provide a Name/Description")
+      return
+    }
     if (qrType === "quiz") {
       // Validate quiz mappings
       if (!quizMappings.length) {
@@ -263,13 +271,11 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
         <div className="space-y-6 px-6 py-6">
           <div className="space-y-2">
-            <Label htmlFor="qrid">QR ID</Label>
-            <Input id="qrid" value={manualQrId} onChange={(e) => setManualQrId(e.target.value)} placeholder="e.g., qrid_8f3b2a9c (leave blank to auto-generate)" />
+            <Label htmlFor="qrid">QR ID <span className="text-red-500">*</span></Label>
+            <Input id="qrid" value={manualQrId} onChange={(e) => setManualQrId(e.target.value)} placeholder="e.g., qrid_8f3b2a9c" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="qrType">
-              QR Type <span className="text-red-500">*</span>
-            </Label>
+            <Label htmlFor="qrType">QR Type <span className="text-red-500">*</span></Label>
             <Select value={qrType} onValueChange={(v: "chapter" | "quiz") => {
               setQrType(v)
               setQuizId("")
@@ -285,11 +291,11 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="name">Internal Name / Description</Label>
+            <Label htmlFor="name">Internal Name / Description <span className="text-red-500">*</span></Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., General Math - Ch. 1 Intro" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+            <Label htmlFor="status">Status <span className="text-red-500">*</span></Label>
             <Select value={status} onValueChange={(v: any) => setStatus(v)}>
               <SelectTrigger>
                 <SelectValue />
@@ -315,7 +321,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                   </div>
                   <div className="space-y-2">
                     <Label>Class <span className="text-red-500">*</span></Label>
-                    <Select value={m.classVal} onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", subject: "", phase: "", chapterId: "", quizId: "" } : pm))}>
+                    <Select value={m.classVal} onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, subject: "", chapterId: "", quizId: "" } : pm))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select Class" />
                       </SelectTrigger>
@@ -325,11 +331,17 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Optional: Academic Program (AP) */}
                   <div className="space-y-2">
                     <Label>Academic Program <span className="text-red-500">*</span></Label>
-                    <Select value={m.program} onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, program: val, subject: "", quizId: "" } : pm))} disabled={!m.classVal}>
+                    <Select
+                      value={m.program}
+                      onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, program: val } : pm))}
+                      disabled={!m.classVal}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder={m.classVal ? "Select Program" : "Select Class first"} />
+                    <SelectValue placeholder={m.classVal ? "Select Program" : "Select Class first"} />
                       </SelectTrigger>
                       <SelectContent>
                         {m.classVal && data.academicPrograms[m.classVal as keyof typeof data.academicPrograms]?.map((prog) => (
@@ -338,14 +350,19 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Optional: Phase */}
                   <div className="space-y-2">
                     <Label>Phase <span className="text-red-500">*</span></Label>
-                    <Select value={m.phase} onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, phase: val, chapterId: "", quizId: "" } : pm))} disabled={!m.classVal}>
+                    <Select
+                      value={m.phase}
+                      onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, phase: val } : pm))}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder={m.classVal ? "Select Phase" : "Select Class first"} />
+                    <SelectValue placeholder="Select Phase" />
                       </SelectTrigger>
                       <SelectContent>
-                        {m.classVal && data.phases.map((p) => (
+                        {data.phases.map((p) => (
                           <SelectItem key={p} value={p}>{p}</SelectItem>
                         ))}
                       </SelectContent>
@@ -353,12 +370,12 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                   </div>
                   <div className="space-y-2">
                     <Label>Subject <span className="text-red-500">*</span></Label>
-                    <Select value={m.subject} onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, subject: val, chapterId: "", quizId: "" } : pm))} disabled={!m.program}>
+                    <Select value={m.subject} onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, subject: val, chapterId: "", quizId: "" } : pm))}>
                       <SelectTrigger>
-                        <SelectValue placeholder={m.program ? "Select Subject" : "Select Program first"} />
+                        <SelectValue placeholder="Select Subject" />
                       </SelectTrigger>
                       <SelectContent>
-                        {m.program && data.subjects[m.program as keyof typeof data.subjects]?.map((subj) => (
+                        {Array.from(new Set(Object.keys(data.subjects).flatMap((p) => (data.subjects as any)[p]))).map((subj: any) => (
                           <SelectItem key={subj} value={subj}>{subj}</SelectItem>
                         ))}
                       </SelectContent>
@@ -366,14 +383,22 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                   </div>
                   <div className="space-y-2">
                     <Label>Related Chapter <span className="text-red-500">*</span></Label>
-                    <Select value={m.chapterId} onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, chapterId: val, quizId: "" } : pm))} disabled={!m.subject || !m.phase}>
+                    <Select value={m.chapterId} onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, chapterId: val, quizId: "" } : pm))} disabled={!m.subject}>
                       <SelectTrigger>
-                        <SelectValue placeholder={m.subject && m.phase ? "Select Chapter" : "Select Subject & Phase first"} />
+                        <SelectValue placeholder={m.subject ? "Select Chapter" : "Select Subject first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {m.subject && m.phase && (data.chapters as any)[m.subject]?.[m.phase]?.map((ch: any) => (
-                          <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
-                        ))}
+                        {m.subject && (() => {
+                          const allLists = Object.values(((data.chapters as any)[m.subject] || {})) as any[]
+                          const flat: any[] = ([] as any[]).concat(...allLists)
+                          const uniq: any[] = []
+                          for (const ch of flat) {
+                            if (!uniq.find((u) => u.id === ch.id)) uniq.push(ch)
+                          }
+                          return uniq.map((ch) => (
+                            <SelectItem key={`${ch.id}`} value={ch.id}>{ch.name}</SelectItem>
+                          ))
+                        })()}
                       </SelectContent>
                     </Select>
                   </div>
@@ -385,7 +410,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                       </SelectTrigger>
                       <SelectContent>
                         {quizDatabase
-                          .filter((q: any) => q.subject === m.subject && q.phase === m.phase && q.chapterId === m.chapterId)
+                          .filter((q: any) => q.subject === m.subject && q.chapterId === m.chapterId && (!m.classVal || q.classVal === m.classVal))
                           .map((q: any) => (
                             <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
                           ))}
