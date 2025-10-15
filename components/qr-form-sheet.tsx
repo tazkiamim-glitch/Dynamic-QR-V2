@@ -263,7 +263,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
         <div className="space-y-6 px-6 py-6">
           <div className="space-y-2">
-            <Label htmlFor="qrid">QR ID (optional)</Label>
+            <Label htmlFor="qrid">QR ID</Label>
             <Input id="qrid" value={manualQrId} onChange={(e) => setManualQrId(e.target.value)} placeholder="e.g., qrid_8f3b2a9c (leave blank to auto-generate)" />
           </div>
           <div className="space-y-2">

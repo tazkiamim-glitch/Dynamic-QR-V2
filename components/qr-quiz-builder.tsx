@@ -61,6 +61,14 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
     return list?.find((c) => c.id === chapterId)?.name || ""
   }, [subject, chapterId])
 
+  const allSubjects = useMemo(() => {
+    const unique = new Set<string>()
+    Object.values(catalog.subjects).forEach((arr: any) => {
+      ;(arr as string[]).forEach((s) => unique.add(s))
+    })
+    return Array.from(unique)
+  }, [])
+
   const clearMeta = () => {
     setEditingId(null)
     setName("")
@@ -231,32 +239,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-              <Label>AP</Label>
-                <Select value={program} onValueChange={(v) => { setProgram(v); setSubject(""); setChapterId("") }}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalog.programs.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-              <Label>Phase</Label>
-                <Select value={phase} onValueChange={setPhase}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalog.phases.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              
               <div className="space-y-2">
                 <Label>Subject</Label>
                 <Select value={subject} onValueChange={(v) => { setSubject(v); setChapterId("") }}>
@@ -264,8 +247,8 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {program && (catalog.subjects as any)[program]?.map((s: string) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    {allSubjects.map((s) => (
+                      <SelectItem key={s} value={s as string}>{s as string}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
