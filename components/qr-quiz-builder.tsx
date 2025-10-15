@@ -6,10 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Textarea } from "@/components/ui/textarea"
 
 interface QRQuizBuilderProps {
   quizDatabase: any[]
@@ -34,49 +32,27 @@ const catalog = {
   },
 }
 
-const topicsByChapter: Record<string, string[]> = {
-  ch1: ["Topic 1", "Topic 2"],
-  ch2: ["Topic A", "Topic B"],
-  ch3: ["Topic X", "Topic Y"],
-}
-
 type OptionKey = "A" | "B" | "C" | "D"
 type Question = {
   id: string
   number: string
-  title?: string
-  options: Record<OptionKey, { text?: string }>
   correct: OptionKey
-  solution?: string
-  allocateTime?: string
-  allocateMark?: string
-  questionType?: string
-  difficulty?: string
-  mathEquation?: "0" | "1"
-  isActive?: boolean
-  topic?: string
-  markdownVersion?: string
 }
 
 export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizBuilderProps) {
   // Two-step flow state
   const [openMeta, setOpenMeta] = useState(false)
-  const [openQuestions, setOpenQuestions] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [activeQuizId, setActiveQuizId] = useState<string | null>(null)
 
-  // Meta fields (based on screenshots)
+  // Meta fields (refactored to requested set)
   const [name, setName] = useState("")
   const [classVal, setClassVal] = useState("")
   const [program, setProgram] = useState("")
   const [phase, setPhase] = useState("")
   const [subject, setSubject] = useState("")
   const [chapterId, setChapterId] = useState("")
-  const [examType, setExamType] = useState("MCQ")
-  const [schedulingMethod, setSchedulingMethod] = useState("Time Slot")
-  const [startAt, setStartAt] = useState("")
-  const [status, setStatus] = useState("Active")
-  const [markdownVersion, setMarkdownVersion] = useState("")
+  const [solutionPdfUrl, setSolutionPdfUrl] = useState("")
+  const [solutionPdfName, setSolutionPdfName] = useState("")
 
   const [questions, setQuestions] = useState<Question[]>([])
 
@@ -93,11 +69,8 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
     setPhase("")
     setSubject("")
     setChapterId("")
-    setExamType("MCQ")
-    setSchedulingMethod("Time Slot")
-    setStartAt("")
-    setStatus("Active")
-    setMarkdownVersion("")
+    setSolutionPdfUrl("")
+    setSolutionPdfName("")
   }
 
   const startCreate = () => {
@@ -116,27 +89,13 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
     setPhase(q.phase || "")
     setSubject(q.subject || "")
     setChapterId(q.chapterId || "")
-    setExamType(q.examType || "MCQ")
-    setSchedulingMethod(q.schedulingMethod || "Time Slot")
-    setStartAt(q.startAt || "")
-    setStatus(q.status || "Active")
-    setMarkdownVersion(q.markdownVersion || "")
+    setSolutionPdfUrl(q.solutionPdfUrl || "")
+    setSolutionPdfName(q.solutionPdfName || "")
+    setQuestions(q.questions || [])
     setOpenMeta(true)
   }
 
-  const openQuestionsEditor = (quizId: string) => {
-    const q = quizDatabase.find((qq) => qq.id === quizId)
-    if (!q) return
-    // Ensure dependent dropdowns (subject/chapter) have data
-    setClassVal(q.classVal || "")
-    setProgram(q.program || "")
-    setPhase(q.phase || "")
-    setSubject(q.subject || "")
-    setChapterId(q.chapterId || "")
-    setActiveQuizId(quizId)
-    setQuestions(q.questions || [])
-    setOpenQuestions(true)
-  }
+  // Inline questions editor only (no separate sheet)
 
   const removeQuestion = (questionId: string) => {
     setQuestions((prev) =>
@@ -152,17 +111,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
       {
         id: `qq_${Math.random().toString(36).slice(2, 9)}`,
         number: String(prev.length + 1),
-        title: "",
-        options: { A: {}, B: {}, C: {}, D: {} },
         correct: "A",
-        allocateTime: "",
-        allocateMark: "",
-        questionType: "MCQ",
-        difficulty: "Easy",
-        mathEquation: "0",
-        isActive: true,
-        topic: "",
-        markdownVersion: "default",
       },
     ])
   }
@@ -181,32 +130,21 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
       subject,
       chapterId,
       chapterName,
-      examType,
-      schedulingMethod,
-      startAt,
-      status,
-      markdownVersion,
+      solutionPdfUrl,
+      solutionPdfName,
     }
     if (editingId) {
       setQuizDatabase(
-        quizDatabase.map((q) => (q.id === editingId ? { ...q, ...meta } : q))
+        quizDatabase.map((q) => (q.id === editingId ? { ...q, ...meta, questions } : q))
       )
     } else {
-      setQuizDatabase([...quizDatabase, { id: quizId, ...meta, questions: [] }])
+      setQuizDatabase([...quizDatabase, { id: quizId, ...meta, questions }])
     }
     setOpenMeta(false)
     clearMeta()
   }
 
-  const saveQuestions = () => {
-    if (!activeQuizId) return
-    setQuizDatabase(
-      quizDatabase.map((q) => (q.id === activeQuizId ? { ...q, questions } : q))
-    )
-    setOpenQuestions(false)
-    setActiveQuizId(null)
-    setQuestions([])
-  }
+  // Questions are saved together with meta in saveMeta
 
   const deleteQuiz = (quizId: string) => {
     if (!confirm("Delete this quiz?")) return
@@ -244,7 +182,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                 quizDatabase.map((q) => (
                   <TableRow key={q.id}>
                     <TableCell className="font-medium">
-                      <button className="underline underline-offset-2" onClick={() => openQuestionsEditor(q.id)}>
+                      <button className="underline underline-offset-2" onClick={() => startEdit(q.id)}>
                         {q.name}
                       </button>
                     </TableCell>
@@ -267,19 +205,19 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
         </CardContent>
       </Card>
 
-      {/* Meta Sheet */}
+      {/* Create/Edit Sheet (Meta + Questions) */}
       <Sheet open={openMeta} onOpenChange={setOpenMeta}>
         <SheetContent className="w-[900px] sm:max-w-[900px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{editingId ? "Edit QR Quiz" : "Create QR Quiz"}</SheetTitle>
-            <SheetDescription>General information and scheduling.</SheetDescription>
+          <SheetDescription>Set quiz details and upload a solution PDF.</SheetDescription>
           </SheetHeader>
 
           <div className="space-y-6 px-6 py-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Exam Name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter Model Test Exam Name" />
+              <Label>QR Quiz Name</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter QR Quiz Name" />
               </div>
               <div className="space-y-2">
                 <Label>Class</Label>
@@ -294,7 +232,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Academic Program</Label>
+              <Label>AP</Label>
                 <Select value={program} onValueChange={(v) => { setProgram(v); setSubject(""); setChapterId("") }}>
                   <SelectTrigger>
                     <SelectValue />
@@ -307,7 +245,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Quarter</Label>
+              <Label>Phase</Label>
                 <Select value={phase} onValueChange={setPhase}>
                   <SelectTrigger>
                     <SelectValue />
@@ -333,7 +271,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Chapter(s)</Label>
+              <Label>Chapter</Label>
                 <Select value={chapterId} onValueChange={setChapterId}>
                   <SelectTrigger>
                     <SelectValue />
@@ -345,82 +283,33 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Exam Type</Label>
-                <Select value={examType} onValueChange={setExamType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="MCQ">MCQ</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Solution PDF (optional)</Label>
+              <Input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0]
+                  if (file) {
+                    setSolutionPdfName(file.name)
+                    const url = URL.createObjectURL(file)
+                    setSolutionPdfUrl(url)
+                  }
+                }}
+              />
+              {solutionPdfUrl && (
+                <div className="flex items-center gap-3 text-sm">
+                  <a href={solutionPdfUrl} target="_blank" rel="noreferrer" className="underline">
+                    View uploaded PDF ({solutionPdfName})
+                  </a>
+                  <Button variant="outline" size="sm" onClick={() => { setSolutionPdfUrl(""); setSolutionPdfName("") }}>Remove</Button>
               </div>
-
-              {/* Scheduling Details */}
-              <div className="space-y-2">
-                <Label>Scheduling Method</Label>
-                <Select value={schedulingMethod} onValueChange={setSchedulingMethod}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Time Slot">Time Slot</SelectItem>
-                    <SelectItem value="Flexible">Flexible</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Exam Start Date & Time</Label>
-                <Input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} />
-              </div>
-
-              {/* Session/Status */}
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Additional Settings */}
-              <div className="space-y-2">
-                <Label>Markdown Version</Label>
-                <Select value={markdownVersion} onValueChange={setMarkdownVersion}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Default</SelectItem>
-                    <SelectItem value="v1">Markdown v1</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              )}
             </div>
           </div>
 
-          <SheetFooter>
-            <Button variant="outline" onClick={() => { setOpenMeta(false); clearMeta() }}>Cancel</Button>
-            <Button onClick={saveMeta} className="bg-purple-600 hover:bg-purple-700">{editingId ? "Save Changes" : "Create Quiz"}</Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-
-      {/* Questions Sheet */}
-      <Sheet open={openQuestions} onOpenChange={setOpenQuestions}>
-        <SheetContent className="w-[900px] sm:max-w-[900px] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Manage Questions</SheetTitle>
-            <SheetDescription>Add or edit questions for this quiz.</SheetDescription>
-          </SheetHeader>
-
-          <div className="space-y-6 px-2 py-6">
+            {/* Questions inline */}
+            <div className="space-y-4 mt-8">
             <div className="flex items-center justify-between">
               <div className="font-semibold">Questions</div>
               {questions.length === 0 && (
@@ -428,113 +317,20 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
               )}
             </div>
 
-            <div className="space-y-4">
               {questions.length === 0 && (
                 <div className="text-sm text-muted-foreground">No questions added yet.</div>
               )}
+
+              <div className="space-y-4">
               {questions.map((q) => (
                 <Card key={q.id} className="p-4">
-                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between">
                     <div className="font-medium">Question {q.number}</div>
-                    <Button variant="destructive" size="sm" onClick={() => removeQuestion(q.id)}>Delete</Button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Chapter</Label>
-                      <Select value={chapterId} onValueChange={(v) => { setChapterId(v); setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, topic: "" } : qq)) }}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subject && (catalog.chapters as any)[subject]?.map((c: any) => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Topics</Label>
-                      <Select value={q.topic || ""} onValueChange={(v) => setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, topic: v } : qq))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(topicsByChapter[chapterId] || []).map((t) => (
-                            <SelectItem key={t} value={t}>{t}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Is Active</Label>
-                      <Select value={(q.isActive ? "Active" : "Inactive")} onValueChange={(v) => setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, isActive: v === "Active" } : qq))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Active">Active</SelectItem>
-                          <SelectItem value="Inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Markdown Version</Label>
-                      <Select value={q.markdownVersion || "default"} onValueChange={(v) => setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, markdownVersion: v } : qq))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="default">Default</SelectItem>
-                          <SelectItem value="v1">Markdown v1</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Math Equation</Label>
-                      <Select value={q.mathEquation || "0"} onValueChange={(v) => {
-                        setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, mathEquation: (v as "0"|"1") } : qq))
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">0</SelectItem>
-                          <SelectItem value="1">1</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Allocate Time</Label>
-                      <Input value={q.allocateTime || ""} onChange={(e) => {
-                        const v = e.target.value
-                        setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, allocateTime: v } : qq))
-                      }} placeholder="e.g., 60s" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Allocate Mark</Label>
-                      <Input value={q.allocateMark || ""} onChange={(e) => {
-                        const v = e.target.value
-                        setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, allocateMark: v } : qq))
-                      }} placeholder="e.g., 1" />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label>Question type</Label>
-                      <Select value={q.questionType || "MCQ"} onValueChange={(v) => {
-                        setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, questionType: v } : qq))
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="MCQ">MCQ</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Correct Option</Label>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Label className="whitespace-nowrap">Correct Option</Label>
                       <Select value={q.correct} onValueChange={(v) => setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, correct: v as OptionKey } : qq))}>
-                        <SelectTrigger>
+                            <SelectTrigger className="w-32">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -544,96 +340,24 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Difficulty Level</Label>
-                      <Select value={q.difficulty || "Easy"} onValueChange={(v) => {
-                        setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, difficulty: v } : qq))
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Easy">Easy</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="Hard">Hard</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <Separator className="my-4" />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Question Title</Label>
-                      <Textarea
-                        rows={8}
-                        value={q.title || ""}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, title: v } : qq))
-                        }}
-                        placeholder="Question Title"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label>Latex Preview</Label>
-                        <div className="text-xs text-muted-foreground">Drag edges and resize (width: 400px, height:200px)</div>
-                      </div>
-                      <div className="border rounded-md p-2 resize overflow-auto w-[400px] h-[200px] md:w-full">
-                        <div className="whitespace-pre-wrap text-sm">{q.title || ""}</div>
+                        <Button variant="destructive" size="sm" onClick={() => removeQuestion(q.id)}>Delete</Button>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {["A","B","C","D"].map((optKey) => (
-                      <div key={optKey} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Option {optKey}</Label>
-                          <div className="text-xs text-muted-foreground">LaTeX Preview</div>
-                        </div>
-                        <Textarea
-                          rows={6}
-                          value={q.options[optKey as "A"|"B"|"C"|"D"]?.text || ""}
-                          onChange={(e) => {
-                            const v = e.target.value
-                            setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, options: { ...qq.options, [optKey]: { text: v } } } : qq))
-                          }}
-                          placeholder="Type text, image URL or LaTeX"
-                        />
-                      </div>
+                  </Card>
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mt-4">
-                    <div className="space-y-2">
-                      <Label>Solution (optional)</Label>
-                      <Textarea
-                        rows={6}
-                        value={q.solution || ""}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          setQuestions((prev) => prev.map((qq) => qq.id === q.id ? { ...qq, solution: v } : qq))
-                        }}
-                        placeholder="Explain the answer"
-                      />
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
             {questions.length > 0 && (
               <div className="flex justify-end">
                 <Button onClick={addQuestion} className="bg-purple-600 hover:bg-purple-700">Add Another Question</Button>
               </div>
             )}
+            </div>
           </div>
 
           <SheetFooter>
-            <Button variant="outline" onClick={() => { setOpenQuestions(false); setActiveQuizId(null) }}>Close</Button>
-            <Button onClick={saveQuestions} className="bg-purple-600 hover:bg-purple-700">Save Questions</Button>
+            <Button variant="outline" onClick={() => { setOpenMeta(false); clearMeta() }}>Cancel</Button>
+            <Button onClick={saveMeta} className="bg-purple-600 hover:bg-purple-700">{editingId ? "Save Changes" : "Create Quiz"}</Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>

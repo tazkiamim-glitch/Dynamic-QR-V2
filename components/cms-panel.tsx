@@ -10,16 +10,35 @@ import QRFormSheet from "@/components/qr-form-sheet"
 import QRSuccessDialog from "@/components/qr-success-dialog"
 import QRQuizBuilder from "@/components/qr-quiz-builder"
 
+interface QRMapping {
+  classVal: string
+  program: string
+  subject: string
+  phase: string
+  chapterId: string
+  chapterName?: string
+  isContentReady: boolean
+  fallbackProgram?: string
+  fallbackPhase?: string
+  fallbackChapterId?: string
+}
+
 interface QRData {
   id: string
   name: string
-  class: string
-  program: string
-  subject: string
-  chapterId: string
-  chapterName: string
-  isContentReady: boolean
   url: string
+  qrType?: "chapter" | "quiz"
+  quizId?: string
+  // New multi-mapping structure
+  mappings?: QRMapping[]
+  // Backward-compat single-target fields
+  class?: string
+  program?: string
+  subject?: string
+  phase?: string
+  chapterId?: string
+  chapterName?: string
+  isContentReady?: boolean
 }
 
 interface CMSPanelProps {
@@ -35,6 +54,7 @@ export default function CMSPanel({ qrDatabase, setQrDatabase, quizDatabase, setQ
   const [editingQR, setEditingQR] = useState<QRData | null>(null)
   const [currentQR, setCurrentQR] = useState<QRData | null>(null)
   const [activeMenu, setActiveMenu] = useState<"generate" | "quiz">("generate")
+  const [search, setSearch] = useState("")
 
   const handleAddNew = () => {
     setEditingQR(null)
@@ -125,10 +145,18 @@ export default function CMSPanel({ qrDatabase, setQrDatabase, quizDatabase, setQ
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>QR Codes Table</CardTitle>
-              <Button onClick={handleAddNew} className="bg-purple-600 hover:bg-purple-700">
-                <Plus className="mr-2 h-4 w-4" />
-                Add New QR
-              </Button>
+              <div className="flex items-center gap-3">
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name or ID"
+                  className="border rounded px-3 py-2 text-sm w-64"
+                />
+                <Button onClick={handleAddNew} className="bg-purple-600 hover:bg-purple-700">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create New QR
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -149,23 +177,62 @@ export default function CMSPanel({ qrDatabase, setQrDatabase, quizDatabase, setQ
                       </TableCell>
                     </TableRow>
                   ) : (
-                    qrDatabase.map((qr) => (
+                    qrDatabase
+                      .filter((qr) =>
+                        `${qr.name} ${qr.id}`.toLowerCase().includes(search.toLowerCase())
+                      )
+                      .map((qr) => (
                       <TableRow key={qr.id}>
                         <TableCell className="font-medium">{qr.name}</TableCell>
                         <TableCell>
                           <code className="text-xs bg-muted px-2 py-1 rounded">{qr.id}</code>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {qr.program} &gt; {qr.subject} &gt; {qr.chapterName.substring(0, 30)}
+                          {qr.qrType === "quiz" ? (
+                            <span>QR Quiz</span>
+                          ) : Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                            <div>
+                              <div>
+                                {qr.mappings[0].program} &gt; {qr.mappings[0].subject} &gt; {(qr.mappings[0].chapterName || "").substring(0, 30)}
+                              </div>
+                              {qr.mappings.length > 1 && (
+                                <div className="text-xs text-muted-foreground">+ {qr.mappings.length - 1} more mapping{qr.mappings.length - 1 > 1 ? "s" : ""}</div>
+                              )}
+                            </div>
+                          ) : (
+                            <span>
+                              {qr.program} &gt; {qr.subject} &gt; {(qr.chapterName || "").substring(0, 30)}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={qr.isContentReady ? "default" : "secondary"}
-                            className={qr.isContentReady ? "bg-green-500" : "bg-yellow-500"}
-                          >
-                            <span className="mr-2">●</span>
-                            {qr.isContentReady ? "Live" : "Fallback Active"}
-                          </Badge>
+                          {qr.qrType === "quiz" ? (
+                            <Badge className="bg-green-500">
+                              <span className="mr-2">●</span>
+                              Live
+                            </Badge>
+                          ) : Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                            (() => {
+                              const allReady = qr.mappings?.every((m) => m.isContentReady)
+                              return (
+                                <Badge
+                                  variant={allReady ? "default" : "secondary"}
+                                  className={allReady ? "bg-green-500" : "bg-yellow-500"}
+                                >
+                                  <span className="mr-2">●</span>
+                                  {allReady ? "Live" : "Fallback Active"}
+                                </Badge>
+                              )
+                            })()
+                          ) : (
+                            <Badge
+                              variant={qr.isContentReady ? "default" : "secondary"}
+                              className={qr.isContentReady ? "bg-green-500" : "bg-yellow-500"}
+                            >
+                              <span className="mr-2">●</span>
+                              {qr.isContentReady ? "Live" : "Fallback Active"}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-3">
