@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { Copy, Check, ChevronRight, ChevronDown, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -43,6 +44,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
   // Two-step flow state
   const [openMeta, setOpenMeta] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   // Meta fields (refactored to requested set)
   const [name, setName] = useState("")
@@ -55,6 +57,75 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
   const [solutionPdfName, setSolutionPdfName] = useState("")
 
   const [questions, setQuestions] = useState<Question[]>([])
+
+  const classGroups = {
+    topSingles: [
+      { value: "c6", label: "Class 6" },
+      { value: "c7", label: "Class 7" },
+      { value: "c8", label: "Class 8" },
+    ],
+    ssc: [
+      { value: "c9", label: "Class 9" },
+      { value: "c10", label: "Class 10" },
+    ],
+    hsc: [
+      { value: "c11", label: "Class 11" },
+      { value: "c12", label: "Class 12" },
+    ],
+  }
+
+  function ProgramClassSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+    const [sscOpen, setSscOpen] = useState(false)
+    const [hscOpen, setHscOpen] = useState(false)
+    return (
+      <Select value={value as any} onValueChange={(v: any) => onChange(v)}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {classGroups.topSingles.map((c) => (
+            <SelectItem key={c.value} value={c.value as any}>{c.label}</SelectItem>
+          ))}
+          {/* SSC group row (selectable) with inline toggle */}
+          <SelectItem value={"ssc" as any} className="pl-2">
+            <button
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setSscOpen((o) => !o) }}
+              className="mr-2 inline-flex items-center justify-center w-4 h-4"
+              aria-label={sscOpen ? "Collapse SSC" : "Expand SSC"}
+            >
+              {sscOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            </button>
+            <span>SSC</span>
+          </SelectItem>
+          {sscOpen && (
+            <>
+              {classGroups.ssc.map((c) => (
+                <SelectItem key={c.value} value={c.value as any} className="pl-8">{c.label}</SelectItem>
+              ))}
+            </>
+          )}
+          {/* HSC group row (selectable) with inline toggle */}
+          <SelectItem value={"hsc" as any} className="pl-2">
+            <button
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setHscOpen((o) => !o) }}
+              className="mr-2 inline-flex items-center justify-center w-4 h-4"
+              aria-label={hscOpen ? "Collapse HSC" : "Expand HSC"}
+            >
+              {hscOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+            </button>
+            <span>HSC</span>
+          </SelectItem>
+          {hscOpen && (
+            <>
+              {classGroups.hsc.map((c) => (
+                <SelectItem key={c.value} value={c.value as any} className="pl-8">{c.label}</SelectItem>
+              ))}
+            </>
+          )}
+        </SelectContent>
+      </Select>
+    )
+  }
 
   const chapterName = useMemo(() => {
     const list = (catalog.chapters as any)[subject] as { id: string; name: string }[] | undefined
@@ -130,10 +201,9 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
       alert("Fill all required fields.")
       return
     }
-    const quizId = `quiz_${Math.random().toString(36).slice(2, 10)}`
     const meta = {
       name,
-      classVal,
+      classVal, // can be a single class (c6..c12) or a group token ('ssc' | 'hsc')
       program,
       phase,
       subject,
@@ -147,6 +217,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
         quizDatabase.map((q) => (q.id === editingId ? { ...q, ...meta, questions } : q))
       )
     } else {
+      const quizId = `quiz_${Math.random().toString(36).slice(2, 10)}`
       setQuizDatabase([...quizDatabase, { id: quizId, ...meta, questions }])
     }
     setOpenMeta(false)
@@ -158,6 +229,16 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
   const deleteQuiz = (quizId: string) => {
     if (!confirm("Delete this quiz?")) return
     setQuizDatabase(quizDatabase.filter((q) => q.id !== quizId))
+  }
+
+  const handleCopy = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 1200)
+    } catch (e) {
+      console.error("Copy failed", e)
+    }
   }
 
   return (
@@ -174,6 +255,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>ID</TableHead>
                 <TableHead>Program</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Chapter</TableHead>
@@ -191,9 +273,38 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                 quizDatabase.map((q) => (
                   <TableRow key={q.id}>
                     <TableCell className="font-medium">
-                      <button className="underline underline-offset-2" onClick={() => startEdit(q.id)}>
-                        {q.name}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button className="underline underline-offset-2" onClick={() => startEdit(q.id)}>
+                          {q.name}
+                        </button>
+                        <button
+                          className="text-xs border rounded px-2 py-0.5 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleCopy(q.name, `name-${q.id}`)}
+                          title="Copy name"
+                        >
+                          {copiedKey === `name-${q.id}` ? (
+                            <span className="inline-flex items-center gap-1"><Check className="w-3 h-3" />Copied</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1"><Copy className="w-3 h-3" />Copy</span>
+                          )}
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs bg-muted px-2 py-1 rounded">{q.id}</code>
+                        <button
+                          className="text-xs border rounded px-2 py-0.5 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleCopy(q.id, `id-${q.id}`)}
+                          title="Copy ID"
+                        >
+                          {copiedKey === `id-${q.id}` ? (
+                            <span className="inline-flex items-center gap-1"><Check className="w-3 h-3" />Copied</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1"><Copy className="w-3 h-3" />Copy</span>
+                          )}
+                        </button>
+                      </div>
                     </TableCell>
                     <TableCell>{q.program}</TableCell>
                     <TableCell>{q.subject}</TableCell>
@@ -229,16 +340,8 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter QR Quiz Name" />
               </div>
               <div className="space-y-2">
-                <Label>Class</Label>
-                <Select value={classVal} onValueChange={(v) => { setClassVal(v); setProgram(""); setSubject(""); setChapterId("") }}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="c9">Class 9</SelectItem>
-                    <SelectItem value="c10">Class 10</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Program Class</Label>
+                <ProgramClassSelect value={classVal} onChange={(v) => { setClassVal(v); setProgram(""); setSubject(""); setChapterId("") }} />
               </div>
               
               <div className="space-y-2">
@@ -324,7 +427,17 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
                         </SelectContent>
                       </Select>
                     </div>
-                        <Button variant="destructive" size="sm" onClick={() => removeQuestion(q.id)}>Delete</Button>
+                        {q.id === (questions[questions.length - 1]?.id) && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removeQuestion(q.id)}
+                            title="Delete last question"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </Card>

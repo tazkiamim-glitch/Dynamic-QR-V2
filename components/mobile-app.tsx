@@ -31,7 +31,7 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
   const [activeProgram, setActiveProgram] = useState<string>("SSC - AP 2026")
   const entitlements: Record<string, "full" | "none"> = {
     "SSC - AP 2026": "full",
-    "SSC - AP 2025": "none",
+    "SSC - AP 2025": "full",
   }
   const showFab = entitlements[activeProgram] === "full"
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -268,7 +268,12 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                 <button onClick={() => setActiveTab("home")} className="p-1">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <h2 className="text-xl font-bold flex-1 text-center -ml-6">{selectedSubject}</h2>
+                <h2 className="text-xl font-bold flex-1 text-center -ml-6">
+                  {selectedSubject}
+                  <span className="ml-2 text-sm font-medium text-muted-foreground">
+                    {activeProgram.replace("SSC - ", "")} · {userClass === "c9" ? "Class 9" : "Class 10"}
+                  </span>
+                </h2>
               </div>
 
               {/* Active QR Quiz (answers-only) */}
