@@ -58,6 +58,27 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
   ]
   const subjects = ["Physics", "Chemistry"]
 
+  // Animated Video Topics/Lessons data structure
+  const animatedVideoTopics: Record<string, Record<string, Array<{ id: string; name: string; thumbnail?: string }>>> = {
+    Physics: {
+      "ch1": [
+        { id: "topic1", name: "ভৌত রাশির ধারণা", thumbnail: "📐" },
+        { id: "topic2", name: "পরিমাপ পদ্ধতি", thumbnail: "📏" },
+        { id: "topic3", name: "একক ও মাত্রা", thumbnail: "🔢" },
+      ],
+      "ch2": [
+        { id: "topic4", name: "গতির প্রকার", thumbnail: "🏃" },
+        { id: "topic5", name: "বেগ ও ত্বরণ", thumbnail: "⚡" },
+      ],
+    },
+    Chemistry: {
+      "ch3": [
+        { id: "topic6", name: "রসায়নের ভূমিকা", thumbnail: "🧪" },
+        { id: "topic7", name: "রাসায়নিক পদার্থ", thumbnail: "⚗️" },
+      ],
+    },
+  }
+
   const handleQRUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -94,8 +115,45 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
   const [activeQuizAnswers, setActiveQuizAnswers] = useState<Record<string, string>>({})
   const [quizSubmitted, setQuizSubmitted] = useState<{ score: number; total: number } | null>(null)
   const [quizResultsByChapter, setQuizResultsByChapter] = useState<Record<string, { score: number; total: number; solutionUrl?: string }>>({})
-  const [programSwitch, setProgramSwitch] = useState<{ targetProgram: string; next: { phase: string; subject: string; chapterId?: string; quiz?: any } } | null>(null)
+  const [programSwitch, setProgramSwitch] = useState<{ targetProgram: string; next: { phase: string; subject: string; chapterId?: string; quiz?: any; animatedVideo?: boolean; liveExam?: boolean; liveExamId?: string; lectureClass?: boolean; lectureClassId?: string } } | null>(null)
   const [paywall, setPaywall] = useState<{ requiredProgram: string } | null>(null)
+  
+  // Animated Video screens
+  const [animatedVideoScreen, setAnimatedVideoScreen] = useState<"subject" | "chapter" | null>(null)
+  const [animatedVideoSubject, setAnimatedVideoSubject] = useState<string | null>(null)
+  const [animatedVideoChapter, setAnimatedVideoChapter] = useState<string | null>(null)
+  
+  // Live Exam screen
+  const [liveExamData, setLiveExamData] = useState<{
+    examId: string
+    examName: string
+    subject: string
+    chapterName: string
+    program?: string
+    hasParticipated: boolean
+    score?: number
+    total?: number
+    solutionPdfUrl?: string
+  } | null>(null)
+
+  // Lecture Class screen
+  const [lectureClassData, setLectureClassData] = useState<{
+    classId: string
+    className: string
+    subject: string
+    chapterName: string
+    program?: string
+    classVal?: string
+    mentor: string
+    date: string
+    time: string
+    isLive: boolean
+    videoUrl?: string
+    topics: Array<{ name: string }>
+  } | null>(null)
+
+  // Shikho AI screen
+  const [showShikhoAI, setShowShikhoAI] = useState(false)
 
   const processQRScan = (url: string) => {
     setScannerOpen(false)
@@ -111,6 +169,17 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
 
     if (!qrData) {
       alert("QR code not found in database. Please create it in CMS first.")
+      return
+    }
+
+    // Handle Shikho AI QR type
+    if (qrData.qrType === "shikho_ai") {
+      if (entitlements[activeProgram] !== "full") {
+        setPaywall({ requiredProgram: activeProgram })
+        return
+      }
+      setShowShikhoAI(true)
+      setActiveTab("courses")
       return
     }
 
@@ -136,6 +205,205 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
       return
     }
 
+    // Handle Animated Video QR type - No program/phase needed, only class/subject/chapter
+    if (qrData.qrType === "animated_video") {
+      let targetSubject = ""
+      let targetChapter = ""
+
+      if (Array.isArray(qrData.mappings) && qrData.mappings.length) {
+        const forUser = qrData.mappings.find((m: any) => m.classVal === userClass) || qrData.mappings[0]
+        if (forUser) {
+          targetSubject = forUser.subject
+          targetChapter = forUser.chapterId || ""
+        }
+      }
+
+      if (!targetSubject) {
+        alert("Invalid animated video QR mapping.")
+        return
+      }
+
+      // No program check needed for animated videos - they're class-wise
+      setAnimatedVideoSubject(targetSubject)
+      if (targetChapter && targetChapter !== "__none__") {
+        setAnimatedVideoChapter(targetChapter)
+        setAnimatedVideoScreen("chapter")
+      } else {
+        setAnimatedVideoChapter(null)
+        setAnimatedVideoScreen("subject")
+      }
+      setActiveTab("courses")
+      return
+    }
+
+    // Handle Live Exam QR type
+    if (qrData.qrType === "live_exam") {
+      let targetPhase = ""
+      let targetSubject = ""
+      let targetChapter = ""
+      let liveExamId = ""
+      let resolvedProgram = activeProgram
+
+      if (Array.isArray(qrData.mappings) && qrData.mappings.length) {
+        const forUser = qrData.mappings.find((m: any) => m.classVal === userClass) || qrData.mappings[0]
+        if (forUser) {
+          if (forUser.isContentReady) {
+            targetPhase = forUser.phase
+            targetSubject = forUser.subject
+            targetChapter = forUser.chapterId
+            liveExamId = forUser.liveExamId || ""
+            resolvedProgram = forUser.program
+          } else {
+            targetPhase = forUser.fallbackPhase || forUser.phase
+            targetSubject = forUser.fallbackSubject || forUser.subject
+            targetChapter = forUser.fallbackChapterId || forUser.chapterId
+            liveExamId = forUser.fallbackLiveExamId || ""
+            resolvedProgram = forUser.fallbackProgram || forUser.program
+          }
+        }
+      } else {
+        targetPhase = qrData.phase || ""
+        targetSubject = qrData.subject || ""
+        targetChapter = qrData.chapterId || ""
+        liveExamId = (qrData as any).liveExamId || ""
+        resolvedProgram = qrData.program || activeProgram
+      }
+
+      if (!targetSubject || !liveExamId) {
+        alert("Invalid live exam QR mapping.")
+        return
+      }
+
+      if (resolvedProgram && resolvedProgram !== activeProgram) {
+        setProgramSwitch({ 
+          targetProgram: resolvedProgram, 
+          next: { 
+            phase: targetPhase, 
+            subject: targetSubject, 
+            chapterId: targetChapter,
+            liveExam: true,
+            liveExamId: liveExamId
+          } 
+        })
+        return
+      }
+
+      if (resolvedProgram && entitlements[resolvedProgram] !== "full") {
+        setPaywall({ requiredProgram: resolvedProgram })
+        return
+      }
+
+      // Find chapter name
+      const chapter = chapters.find((ch) => ch.id === targetChapter && ch.subject === targetSubject)
+      const chapterName = chapter?.name || targetChapter
+
+      // Set live exam data (simulate - in real app, this would come from API)
+      setLiveExamData({
+        examId: liveExamId,
+        examName: `Live Exam ${liveExamId}`,
+        subject: targetSubject,
+        chapterName: chapterName,
+        program: resolvedProgram,
+        hasParticipated: false, // In real app, check user's participation from API
+        solutionPdfUrl: `https://example.com/solutions/${liveExamId}.pdf`, // In real app, get from API
+      })
+      setActiveTab("courses")
+      return
+    }
+
+    // Handle Lecture Class QR type
+    if (qrData.qrType === "lecture_class") {
+      let targetPhase = ""
+      let targetSubject = ""
+      let targetChapter = ""
+      let lectureClassId = ""
+      let resolvedProgram = activeProgram
+
+      if (Array.isArray(qrData.mappings) && qrData.mappings.length) {
+        const forUser = qrData.mappings.find((m: any) => m.classVal === userClass) || qrData.mappings[0]
+        if (forUser) {
+          if (forUser.isContentReady) {
+            targetPhase = forUser.phase
+            targetSubject = forUser.subject
+            targetChapter = forUser.chapterId
+            lectureClassId = forUser.lectureClassId || ""
+            resolvedProgram = forUser.program
+          } else {
+            targetPhase = forUser.fallbackPhase || forUser.phase
+            targetSubject = forUser.fallbackSubject || forUser.subject
+            targetChapter = forUser.fallbackChapterId || forUser.chapterId
+            lectureClassId = forUser.fallbackLectureClassId || ""
+            resolvedProgram = forUser.fallbackProgram || forUser.program
+          }
+        }
+      } else {
+        targetPhase = qrData.phase || ""
+        targetSubject = qrData.subject || ""
+        targetChapter = qrData.chapterId || ""
+        lectureClassId = (qrData as any).lectureClassId || ""
+        resolvedProgram = qrData.program || activeProgram
+      }
+
+      if (!targetSubject || !lectureClassId) {
+        alert("Invalid lecture class QR mapping.")
+        return
+      }
+
+      if (resolvedProgram && resolvedProgram !== activeProgram) {
+        setProgramSwitch({ 
+          targetProgram: resolvedProgram, 
+          next: { 
+            phase: targetPhase, 
+            subject: targetSubject, 
+            chapterId: targetChapter,
+            lectureClass: true,
+            lectureClassId: lectureClassId
+          } 
+        })
+        return
+      }
+
+      if (resolvedProgram && entitlements[resolvedProgram] !== "full") {
+        setPaywall({ requiredProgram: resolvedProgram })
+        return
+      }
+
+      // Find chapter name and lecture class details
+      const chapter = chapters.find((ch) => ch.id === targetChapter && ch.subject === targetSubject)
+      const chapterName = chapter?.name || targetChapter
+
+      // Get lecture class details (simulate - in real app, from API)
+      // For now, use the lectureClassId to find it
+      const lectureClass = { id: lectureClassId, name: `Lecture Class ${lectureClassId}` }
+
+      // Get class value from mapping
+      let targetClassVal = ""
+      if (Array.isArray(qrData.mappings) && qrData.mappings.length) {
+        const forUser = qrData.mappings.find((m: any) => m.classVal === userClass) || qrData.mappings[0]
+        targetClassVal = forUser?.classVal || userClass
+      } else {
+        targetClassVal = userClass
+      }
+
+      // Set lecture class data
+      setLectureClassData({
+        classId: lectureClassId,
+        className: lectureClass?.name || `Lecture Class ${lectureClassId}`,
+        subject: targetSubject,
+        chapterName: chapterName,
+        program: resolvedProgram,
+        classVal: targetClassVal,
+        mentor: "Moriom", // In real app, get from API
+        date: "18-05-25, Sunday", // In real app, get from API
+        time: "04.13 PM - 04.14 PM", // In real app, get from API
+        isLive: true, // In real app, check from API
+        videoUrl: `https://example.com/videos/${lectureClassId}.mp4`, // In real app, get from API
+        topics: [{ name: "Comprehension 1" }], // In real app, get from API
+      })
+      setActiveTab("courses")
+      return
+    }
+
     // Resolve mapping by user's class; fallback to legacy fields if needed
     let targetPhase = qrData.phase
     let targetSubject = qrData.subject
@@ -152,7 +420,7 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
           resolvedProgram = forUser.program
         } else {
           targetPhase = forUser.fallbackPhase || forUser.phase
-          targetSubject = forUser.subject
+          targetSubject = forUser.fallbackSubject || forUser.subject
           targetChapter = forUser.fallbackChapterId || forUser.chapterId
           resolvedProgram = forUser.fallbackProgram || forUser.program
         }
@@ -170,7 +438,15 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
     }
 
     if (resolvedProgram && resolvedProgram !== activeProgram) {
-      setProgramSwitch({ targetProgram: resolvedProgram, next: { phase: targetPhase || "Quarter 1", subject: targetSubject, chapterId: targetChapter } })
+      setProgramSwitch({ 
+        targetProgram: resolvedProgram, 
+        next: { 
+          phase: targetPhase || "Quarter 1", 
+          subject: targetSubject, 
+          chapterId: targetChapter,
+          animatedVideo: false 
+        } 
+      })
       return
     }
 
@@ -263,20 +539,346 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
 
           {activeTab === "courses" && (
             <>
-              {/* Subject header like the reference screen */}
-              <div className="flex items-center gap-2 mb-2">
-                <button onClick={() => setActiveTab("home")} className="p-1">
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <h2 className="text-xl font-bold flex-1 text-center -ml-6">
-                  {selectedSubject}
-                  <span className="ml-2 text-sm font-medium text-muted-foreground">
-                    {activeProgram.replace("SSC - ", "")} · {userClass === "c9" ? "Class 9" : "Class 10"}
-                  </span>
-                </h2>
-              </div>
+              {/* Shikho AI Screen */}
+              {showShikhoAI && (
+                <>
+                  {/* Header */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <button 
+                      onClick={() => setShowShikhoAI(false)} 
+                      className="p-1"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <h1 className="text-lg font-bold flex-1 text-center -ml-6">Shikho AI</h1>
+                  </div>
 
-              {/* Active QR Quiz (answers-only) */}
+                  {/* Main Screen Content */}
+                  <Card className="p-8 text-center">
+                    <div className="text-4xl mb-4">🤖</div>
+                    <h2 className="text-xl font-bold mb-2">Shikho AI's main screen</h2>
+                    <p className="text-sm text-muted-foreground">AI-powered learning assistant</p>
+                  </Card>
+                </>
+              )}
+
+              {/* Lecture Class Screen */}
+              {lectureClassData && (
+                <>
+                  {/* Header */}
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <button 
+                        onClick={() => setLectureClassData(null)} 
+                        className="p-1"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <div className="flex-1 text-center -ml-6">
+                        <h1 className="text-lg font-bold">
+                          {lectureClassData.subject} · {lectureClassData.program?.replace("SSC - ", "") || ""} · {lectureClassData.classVal === "c9" ? "Class 9" : lectureClassData.classVal === "c10" ? "Class 10" : lectureClassData.classVal ? `Class ${lectureClassData.classVal.replace("c", "")}` : ""}
+                        </h1>
+                        <div className="text-xs text-muted-foreground mt-0.5">ক্লাসের বিস্তারিত</div>
+                      </div>
+                      <div className="text-xs text-gray-500">2:22</div>
+                    </div>
+                  </div>
+
+                  {/* Video Player */}
+                  <div className="relative w-full aspect-video bg-gradient-to-br from-amber-100 via-purple-100 to-pink-100 rounded-lg mb-4 overflow-hidden">
+                    {/* Pattern Background */}
+                    <div className="absolute inset-0 opacity-20" style={{
+                      backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(139,69,19,0.1) 10px, rgba(139,69,19,0.1) 20px),
+                                      repeating-linear-gradient(-45deg, transparent, transparent 10px, rgba(147,51,234,0.1) 10px, rgba(147,51,234,0.1) 20px)`
+                    }} />
+                    
+                    {/* Video Controls */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      {/* Settings Icon */}
+                      <div className="absolute top-3 left-3 flex gap-2">
+                        <div className="w-8 h-8 bg-pink-500/80 rounded-full flex items-center justify-center text-white text-xs">⚙️</div>
+                        <div className="w-8 h-8 bg-white/80 rounded-full flex items-center justify-center text-gray-700 text-xs">📶</div>
+                      </div>
+                      
+                      {/* Download Icon */}
+                      <div className="absolute top-3 right-3">
+                        <div className="w-8 h-8 bg-white/80 rounded-full flex items-center justify-center text-gray-700">⬇️</div>
+                      </div>
+
+                      {/* Play Button */}
+                      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg">
+                        <div className="w-0 h-0 border-l-[12px] border-l-gray-900 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent ml-1" />
+                      </div>
+
+                      {/* Skip Buttons */}
+                      <div className="absolute left-4 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                        <div className="text-white text-xl">⏪</div>
+                      </div>
+                      <div className="absolute right-4 w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                        <div className="text-white text-xl">⏩</div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/50 to-transparent">
+                        <div className="relative h-1 bg-white/30 rounded-full mb-2">
+                          <div className="absolute left-0 top-0 h-full w-[5%] bg-red-500 rounded-full">
+                            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full" />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-white text-xs">
+                          <span>00:00 / 01:08</span>
+                          <div className="w-5 h-5">⛶</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Class Details */}
+                  <div className="bg-white rounded-lg p-4 mb-4">
+                    <h2 className="text-xl font-bold mb-1">
+                      {lectureClassData.subject} · {lectureClassData.program?.replace("SSC - ", "") || ""} · {lectureClassData.classVal === "c9" ? "Class 9" : lectureClassData.classVal === "c10" ? "Class 10" : lectureClassData.classVal ? `Class ${lectureClassData.classVal.replace("c", "")}` : ""}
+                    </h2>
+                    <div className="text-sm text-gray-600 mb-1">১ম পত্র</div>
+                    {lectureClassData.isLive && (
+                      <span className="text-sm text-red-500 mb-3 inline-block">live</span>
+                    )}
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">মেন্টরঃ</span>
+                        <span>{lectureClassData.mentor}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>📅</span>
+                        <span>{lectureClassData.date}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>🕐</span>
+                        <span>{lectureClassData.time}</span>
+                      </div>
+                    </div>
+
+                    {/* Class Content */}
+                    <div className="mt-4">
+                      <h3 className="font-semibold mb-2">ক্লাসের বিষয়বস্তুঃ</h3>
+                      <div className="space-y-2">
+                        {lectureClassData.topics.map((topic, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <span className="text-pink-500">⭐</span>
+                            <span>{topic.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Live Exam Screen */}
+              {liveExamData && (
+                <>
+                  {/* Header */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <button 
+                        onClick={() => setLiveExamData(null)} 
+                        className="p-1"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <div className="flex-1 text-center -ml-6">
+                        <div className="text-xs text-muted-foreground mb-0.5">
+                          {liveExamData.subject} · {liveExamData.program?.replace("SSC - ", "") || ""}
+                        </div>
+                        <h1 className="text-lg font-bold">লাইভ টেস্টের পারফরমেন্স</h1>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PDF Scroll Hint */}
+                  <Card className="bg-gray-100 p-2.5 mb-4 flex items-center gap-2">
+                    <div className="text-2xl">📁</div>
+                    <div className="flex-1 text-xs text-gray-700">পিডিএফ দেখতে নিচে স্ক্রল করো</div>
+                    <ChevronLeft className="w-3 h-3 text-gray-500 rotate-90" />
+                  </Card>
+
+                  {/* No Participation Message */}
+                  {!liveExamData.hasParticipated && (
+                    <Card className="p-4 mb-4 text-center">
+                      <div className="text-5xl mb-3">🎒</div>
+                      <h2 className="text-lg font-bold mb-1.5">দুঃখিত!</h2>
+                      <p className="text-sm mb-1.5">তুমি এই টেস্টে অংশগ্রহণ করোনি!</p>
+                      <p className="text-xs text-gray-600">তুমি টেস্ট দাওনি বলে এখানে কোনো রেজাল্ট নেই, পরবর্তী টেস্টের প্রস্তুতি নাও</p>
+                    </Card>
+                  )}
+
+                  {/* Results (if participated) */}
+                  {liveExamData.hasParticipated && liveExamData.score !== undefined && (
+                    <Card className="p-4 mb-4 text-center">
+                      <h2 className="text-lg font-bold mb-1.5">তোমার ফলাফল</h2>
+                      <div className="text-2xl font-bold text-purple-600 mb-1.5">
+                        {liveExamData.score}/{liveExamData.total}
+                      </div>
+                      <p className="text-xs text-gray-600">তুমি {liveExamData.score} নম্বর পেয়েছো</p>
+                    </Card>
+                  )}
+
+                  {/* Solution Section */}
+                  {liveExamData.solutionPdfUrl && (
+                    <>
+                      <h3 className="text-sm font-semibold mb-2">টেস্টের বিস্তারিত সমাধান দেখে নাও</h3>
+                      <Card className="p-3 mb-4 cursor-pointer hover:bg-gray-50" onClick={() => window.open(liveExamData.solutionPdfUrl, "_blank")}>
+                        <div className="flex items-center gap-2">
+                          <div className="text-2xl">📄</div>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">{liveExamData.examName} Solution ({liveExamData.subject})</div>
+                            <div className="text-xs text-gray-600">{liveExamData.examName} Solution ({liveExamData.subject})</div>
+                          </div>
+                          <ChevronLeft className="w-4 h-4 text-gray-400 rotate-180" />
+                        </div>
+                      </Card>
+                    </>
+                  )}
+
+                  {/* Bottom See Solution Button */}
+                  {liveExamData.solutionPdfUrl && (
+                    <div className="sticky bottom-0 bg-white pt-3 pb-2 -mx-5 px-5 border-t">
+                      <Button 
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 text-sm font-medium"
+                        onClick={() => window.open(liveExamData.solutionPdfUrl, "_blank")}
+                      >
+                        সমাধান দেখো
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Animated Video Screens */}
+              {animatedVideoScreen === "subject" && animatedVideoSubject && (
+                <>
+                  {/* Subject Screen Header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <button 
+                      onClick={() => {
+                        setAnimatedVideoScreen(null)
+                        setAnimatedVideoSubject(null)
+                        setAnimatedVideoChapter(null)
+                      }} 
+                      className="p-1"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1">
+                      <h1 className="text-xl font-bold text-[#1a237e]">{animatedVideoSubject} - এনিমেটেড ভিডিও</h1>
+                      <p className="text-sm text-[#424242] mt-1">
+                        সর্বমোট {chapters.filter((ch) => ch.subject === animatedVideoSubject).length} টি অধ্যায়
+                      </p>
+                    </div>
+                    <div className="text-2xl">অ</div>
+                  </div>
+
+                  {/* Chapter List */}
+                  <div className="space-y-2">
+                    {chapters
+                      .filter((ch) => ch.subject === animatedVideoSubject)
+                      .map((chapter, idx) => (
+                        <Card
+                          key={`${chapter.id}-${chapter.phase}`}
+                          className="p-4 cursor-pointer hover:bg-muted/50 transition-colors bg-gray-50"
+                          onClick={() => {
+                            setAnimatedVideoChapter(chapter.id)
+                            setAnimatedVideoScreen("chapter")
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="text-xs text-gray-500 mb-1">অধ্যায় {idx === 0 ? "০" : idx.toString()}</div>
+                              <div className="text-base font-semibold text-[#1a237e]">{chapter.name}</div>
+                            </div>
+                            <ChevronLeft className="w-5 h-5 text-gray-400 rotate-180" />
+                          </div>
+                        </Card>
+                      ))}
+                  </div>
+                </>
+              )}
+
+              {animatedVideoScreen === "chapter" && animatedVideoSubject && animatedVideoChapter && (
+                <>
+                  {/* Chapter Screen Header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <button 
+                      onClick={() => {
+                        setAnimatedVideoScreen("subject")
+                        setAnimatedVideoChapter(null)
+                      }} 
+                      className="p-1"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1">
+                      {(() => {
+                        const chapter = chapters.find((ch) => ch.id === animatedVideoChapter && ch.subject === animatedVideoSubject)
+                        const topicCount = animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter]?.length || 0
+                        return (
+                          <>
+                            <h1 className="text-xl font-bold text-[#1a237e]">{chapter?.name || "Chapter"}</h1>
+                            <p className="text-sm text-[#424242] mt-1">
+                              {topicCount} টি টপিক
+                            </p>
+                          </>
+                        )
+                      })()}
+                    </div>
+                    <div className="text-2xl">অ</div>
+                  </div>
+
+                  {/* Topic/Lesson List */}
+                  <div className="space-y-3">
+                    {animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter]?.map((topic, idx) => (
+                      <Card key={topic.id} className="overflow-hidden border border-gray-200 rounded-lg shadow-sm">
+                        <div className="flex">
+                          {/* Thumbnail */}
+                          <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center text-4xl flex-shrink-0 border-r border-gray-200">
+                            {topic.thumbnail || "📚"}
+                          </div>
+                          {/* Content */}
+                          <div className="flex-1 p-4 flex flex-col justify-center">
+                            <div className="text-xs text-gray-500 mb-1">টপিক {(() => {
+                              const chapterIdx = chapters.filter((ch) => ch.subject === animatedVideoSubject).findIndex((ch) => ch.id === animatedVideoChapter)
+                              return chapterIdx >= 0 ? `${chapterIdx + 1}.${idx + 1}` : `${idx + 1}`
+                            })()}</div>
+                            <div className="text-base font-semibold text-[#1a237e]">{topic.name}</div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                    {(!animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter] || animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter]?.length === 0) && (
+                      <Card className="p-6 text-center text-muted-foreground">
+                        <div>এই অধ্যায়ে এখনও কোন টপিক নেই</div>
+                      </Card>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Regular Courses Content */}
+              {!animatedVideoScreen && !liveExamData && !lectureClassData && (
+                <>
+                  {/* Subject header like the reference screen */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <button onClick={() => setActiveTab("home")} className="p-1">
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <h2 className="text-xl font-bold flex-1 text-center -ml-6">
+                      {selectedSubject}
+                      <span className="ml-2 text-sm font-medium text-muted-foreground">
+                        {activeProgram.replace("SSC - ", "")} · {userClass === "c9" ? "Class 9" : "Class 10"}
+                      </span>
+                    </h2>
+                  </div>
+
+                  {/* Active QR Quiz (answers-only) */}
               {activeQuiz && (
                 <Card className="p-4 mb-4">
                   <div className="flex items-center justify-between mb-2">
@@ -336,7 +938,7 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                 </Card>
               )}
 
-              {!activeQuiz && (
+              {!activeQuiz && !liveExamData && !lectureClassData && !showShikhoAI && (
                 <>
                   {/* Quarter tabs */}
                   <div className="flex justify-around border-b mb-4">
@@ -394,12 +996,14 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                   </Accordion>
                 </>
               )}
+                </>
+              )}
             </>
           )}
         </div>
 
         {/* FAB Button (entitlement gated) */}
-        {showFab && (
+        {showFab && !lectureClassData && !showShikhoAI && (
           <button
             onClick={() => setScannerOpen(true)}
             className="absolute bottom-[90px] left-1/2 -translate-x-1/2 w-[60px] h-[60px] bg-purple-600 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-10"
@@ -488,6 +1092,48 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                       setActiveQuiz(next.quiz)
                       setActiveQuizAnswers({})
                       setQuizSubmitted(null)
+                      setActiveTab("courses")
+                    } else if (next.animatedVideo) {
+                      // Animated videos don't require program switch - they're class-wise
+                      setAnimatedVideoSubject(next.subject)
+                      if (next.chapterId && next.chapterId !== "__none__") {
+                        setAnimatedVideoChapter(next.chapterId)
+                        setAnimatedVideoScreen("chapter")
+                      } else {
+                        setAnimatedVideoChapter(null)
+                        setAnimatedVideoScreen("subject")
+                      }
+                      setActiveTab("courses")
+                    } else if (next.liveExam) {
+                      if (entitlements[programSwitch.targetProgram] !== "full") { setPaywall({ requiredProgram: programSwitch.targetProgram }); return }
+                      const chapter = chapters.find((ch) => ch.id === next.chapterId && ch.subject === next.subject)
+                      setLiveExamData({
+                        examId: next.liveExamId || "",
+                        examName: `Live Exam ${next.liveExamId}`,
+                        subject: next.subject,
+                        chapterName: chapter?.name || next.chapterId || "",
+                        program: programSwitch.targetProgram,
+                        hasParticipated: false,
+                        solutionPdfUrl: `https://example.com/solutions/${next.liveExamId}.pdf`,
+                      })
+                      setActiveTab("courses")
+                    } else if (next.lectureClass) {
+                      if (entitlements[programSwitch.targetProgram] !== "full") { setPaywall({ requiredProgram: programSwitch.targetProgram }); return }
+                      const chapter = chapters.find((ch) => ch.id === next.chapterId && ch.subject === next.subject)
+                      setLectureClassData({
+                        classId: next.lectureClassId || "",
+                        className: `Lecture Class ${next.lectureClassId}`,
+                        subject: next.subject,
+                        chapterName: chapter?.name || next.chapterId || "",
+                        program: programSwitch.targetProgram,
+                        classVal: userClass,
+                        mentor: "Moriom",
+                        date: "18-05-25, Sunday",
+                        time: "04.13 PM - 04.14 PM",
+                        isLive: true,
+                        videoUrl: `https://example.com/videos/${next.lectureClassId}.mp4`,
+                        topics: [{ name: "Comprehension 1" }],
+                      })
                       setActiveTab("courses")
                     } else {
                       if (entitlements[programSwitch.targetProgram] !== "full") { setPaywall({ requiredProgram: programSwitch.targetProgram }); return }

@@ -73,6 +73,31 @@ const data = {
   exams: {
     "অধ্যায় ০১ - ভৌত রাশি": ["Ch. 1 - MCQ Set A"],
   },
+  lectureClasses: {
+    Physics: {
+      "Quarter 1": {
+        "ch1": [
+          { id: "lec1", name: "Lecture 1 - Introduction to Physical Quantities" },
+          { id: "lec2", name: "Lecture 2 - Measurement Systems" },
+        ],
+        "ch2": [
+          { id: "lec3", name: "Lecture 1 - Motion Basics" },
+        ],
+      },
+      "Quarter 2": {
+        "ch1": [
+          { id: "lec4", name: "Lecture 1 - Newton's Laws" },
+        ],
+      },
+    },
+    Chemistry: {
+      "Quarter 1": {
+        "ch3": [
+          { id: "lec5", name: "Lecture 1 - Chemistry Concepts" },
+        ],
+      },
+    },
+  },
 }
 
 interface QRFormSheetProps {
@@ -84,7 +109,7 @@ interface QRFormSheetProps {
 }
 
 export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, quizDatabase = [] }: QRFormSheetProps) {
-  const [qrType, setQrType] = useState<"chapter" | "quiz" | "">("")
+  const [qrType, setQrType] = useState<"chapter" | "quiz" | "lecture_class" | "live_exam" | "animated_video" | "shikho_ai" | "">("")
   const [name, setName] = useState("")
   const [status, setStatus] = useState<"Published" | "Unpublished">("Published")
   const [manualQrId, setManualQrId] = useState("")
@@ -99,11 +124,16 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       program: "",
       subject: "",
       chapterId: "",
+      lectureClassId: "",
+      liveExamId: "",
       isContentReady: false,
       fallbackClassVal: "",
       fallbackProgram: "",
       fallbackPhase: "",
+      fallbackSubject: "",
       fallbackChapterId: "",
+      fallbackLectureClassId: "",
+      fallbackLiveExamId: "",
     },
   ])
 
@@ -130,6 +160,20 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
   function ProgramClassSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
     const [sscOpen, setSscOpen] = useState(false)
     const [hscOpen, setHscOpen] = useState(false)
+    
+    // Find the label for the selected value to display in SelectValue
+    const allClasses = [...classGroups.topSingles, ...classGroups.ssc, ...classGroups.hsc]
+    const selectedLabel = allClasses.find(c => c.value === value)?.label
+    
+    // Auto-expand sections if value is selected from them
+    useEffect(() => {
+      if (value === "c9" || value === "c10") {
+        setSscOpen(true)
+      } else if (value === "c11" || value === "c12") {
+        setHscOpen(true)
+      }
+    }, [value])
+    
     return (
       <Select value={(value || undefined) as any} onValueChange={(v: any) => onChange(v)}>
         <SelectTrigger>
@@ -150,7 +194,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
             {sscOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
             <span>SSC</span>
           </div>
-          {sscOpen && (
+          {(sscOpen || value === "c9" || value === "c10") && (
             <>
               {classGroups.ssc.map((c) => (
                 <SelectItem key={c.value} value={c.value as any} className="pl-8">{c.label}</SelectItem>
@@ -168,7 +212,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
             {hscOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
             <span>HSC</span>
           </div>
-          {hscOpen && (
+          {(hscOpen || value === "c11" || value === "c12") && (
             <>
               {classGroups.hsc.map((c) => (
                 <SelectItem key={c.value} value={c.value as any} className="pl-8">{c.label}</SelectItem>
@@ -182,7 +226,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
   useEffect(() => {
     if (editingQR) {
-      setQrType(editingQR.qrType === "quiz" ? "quiz" : "chapter")
+      setQrType(editingQR.qrType || "chapter")
       setQuizId(editingQR.quizId || "")
       setSelectedQuizId(editingQR.quizId || "")
       setName(editingQR.name || "")
@@ -197,11 +241,16 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
             program: m.program || "",
             subject: m.subject || "",
             chapterId: m.chapterId || "",
+            lectureClassId: m.lectureClassId || "",
+            liveExamId: m.liveExamId || "",
             isContentReady: !!m.isContentReady,
             fallbackClassVal: m.fallbackClassVal || m.fallback?.classVal || "",
             fallbackProgram: m.fallbackProgram || m.fallback?.program || "",
             fallbackPhase: m.fallbackPhase || m.fallback?.phase || "",
+            fallbackSubject: m.fallbackSubject || m.fallback?.subject || "",
             fallbackChapterId: m.fallbackChapterId || m.fallback?.chapterId || "",
+            fallbackLectureClassId: m.fallbackLectureClassId || m.fallback?.lectureClassId || "",
+            fallbackLiveExamId: m.fallbackLiveExamId || m.fallback?.liveExamId || "",
           }))
         )
       } else {
@@ -213,11 +262,16 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
             program: editingQR.program || "",
             subject: editingQR.subject || "",
             chapterId: editingQR.chapterId || "",
+            lectureClassId: (editingQR as any).lectureClassId || "",
+            liveExamId: (editingQR as any).liveExamId || "",
             isContentReady: !!editingQR.isContentReady,
             fallbackClassVal: editingQR.fallback?.classVal || "",
             fallbackProgram: editingQR.fallback?.program || "",
             fallbackPhase: editingQR.fallback?.phase || "",
+            fallbackSubject: editingQR.fallback?.subject || "",
             fallbackChapterId: editingQR.fallback?.chapterId || "",
+            fallbackLectureClassId: editingQR.fallback?.lectureClassId || "",
+            fallbackLiveExamId: editingQR.fallback?.liveExamId || "",
           },
         ])
       }
@@ -246,11 +300,16 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
           program: "",
           subject: "",
           chapterId: "",
+          lectureClassId: "",
+          liveExamId: "",
           isContentReady: false,
           fallbackClassVal: "",
           fallbackProgram: "",
           fallbackPhase: "",
+          fallbackSubject: "",
           fallbackChapterId: "",
+          fallbackLectureClassId: "",
+          fallbackLiveExamId: "",
         },
       ])
       setQuizMappings([{ classVal: "", program: "" }])
@@ -311,6 +370,118 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       return
     }
 
+    // Shikho AI type - no destination mapping needed
+    if (qrType === "shikho_ai") {
+      const qrId = editingQR?.id || (manualQrId?.trim() || `qrid_${Math.random().toString(36).substring(2, 11)}`)
+      const qrData = {
+        id: qrId,
+        name: name || "[Shikho AI]",
+        qrType: "shikho_ai" as const,
+        url: `https://shikho.com/qr?id=${qrId}`,
+        status,
+      }
+      onSubmit(qrData)
+      return
+    }
+
+    // Animated Video Lesson type - no isContentReady/fallback needed, chapter is optional, no program/phase
+    if (qrType === "animated_video") {
+      if (!mappings.length) {
+        alert("Please add at least one destination mapping")
+        return
+      }
+      for (const [idx, m] of mappings.entries()) {
+        if (!m.classVal || !m.subject) {
+          alert(`Please fill all required fields in Mapping #${idx + 1}`)
+          return
+        }
+      }
+      const qrId = editingQR?.id || (manualQrId?.trim() || `qrid_${Math.random().toString(36).substring(2, 11)}`)
+      const mappingsWithNames = mappings.map((m) => {
+        // Find chapter name from any phase (since chapters exist per phase)
+        let chapterName = ""
+        if (m.chapterId && m.chapterId !== "__none__") {
+          for (const phase of data.phases) {
+            const chapter = (data.chapters as any)[m.subject]?.[phase]?.find((c: any) => c.id === m.chapterId)
+            if (chapter) {
+              chapterName = chapter.name
+              break
+            }
+          }
+        }
+        return {
+          ...m,
+          chapterName,
+        }
+      })
+      const first = mappingsWithNames[0]
+      const defaultName = first.chapterName 
+        ? `[Animated Video] ${first.subject} - ${first.chapterName.substring(0, 30)}`
+        : `[Animated Video] ${first.subject}`
+      const qrData = {
+        id: qrId,
+        name: name || defaultName,
+        qrType: "animated_video" as const,
+        url: `https://shikho.com/qr?id=${qrId}`,
+        mappings: mappingsWithNames,
+        status,
+      }
+      onSubmit(qrData)
+      return
+    }
+
+    // Lecture Class and Live Exam types with destination mappings
+    if (qrType === "lecture_class" || qrType === "live_exam") {
+      if (!mappings.length) {
+        alert("Please add at least one destination mapping")
+        return
+      }
+      for (const [idx, m] of mappings.entries()) {
+        if (!m.classVal || !m.program || !m.phase || !m.subject || !m.chapterId) {
+          alert(`Please fill all required fields in Mapping #${idx + 1}`)
+          return
+        }
+        if (qrType === "lecture_class" && !m.lectureClassId) {
+          alert(`Please select a Lecture Class in Mapping #${idx + 1}`)
+          return
+        }
+        if (qrType === "live_exam" && !m.liveExamId) {
+          alert(`Please provide a Live Exam ID in Mapping #${idx + 1}`)
+          return
+        }
+        if (!m.isContentReady) {
+          if (!m.fallbackClassVal || !m.fallbackProgram || !m.fallbackPhase || !m.fallbackChapterId) {
+            alert(`Please complete fallback fields in Mapping #${idx + 1}`)
+            return
+          }
+        }
+      }
+      const qrId = editingQR?.id || (manualQrId?.trim() || `qrid_${Math.random().toString(36).substring(2, 11)}`)
+      const mappingsWithNames = mappings.map((m) => {
+        const chapter = (data.chapters as any)[m.subject]?.[m.phase]?.find((c: any) => c.id === m.chapterId)
+        const chapterName = chapter?.name || ""
+        return {
+          ...m,
+          chapterName,
+        }
+      })
+      const first = mappingsWithNames[0]
+      const typeLabel = qrType === "lecture_class" ? "Lecture Class" : "Live Exam"
+      const defaultName = `[${typeLabel}] ${first.subject} - ${first.chapterName.substring(0, 20)}...`
+      const qrData = {
+        id: qrId,
+        name: name || defaultName,
+        qrType: qrType as const,
+        url: `https://shikho.com/qr?id=${qrId}`,
+        lectureClassId: qrType === "lecture_class" ? mappingsWithNames[0].lectureClassId : undefined,
+        liveExamId: qrType === "live_exam" ? mappingsWithNames[0].liveExamId : undefined,
+        mappings: mappingsWithNames,
+        status,
+      }
+      onSubmit(qrData)
+      return
+    }
+
     // Chapter type with multiple destination mappings
     if (!mappings.length) {
       alert("Please add at least one destination mapping")
@@ -322,15 +493,23 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
         alert(`Please fill all required fields in Mapping #${idx + 1}`)
         return
       }
-      if (!m.isContentReady) {
-        if (!m.fallbackClassVal || !m.fallbackProgram || !m.fallbackPhase || !m.fallbackChapterId) {
-          alert(`Please complete fallback fields in Mapping #${idx + 1}`)
-          return
+        if (!m.isContentReady) {
+          if (!m.fallbackClassVal || !m.fallbackProgram || !m.fallbackPhase || !m.fallbackSubject || !m.fallbackChapterId) {
+            alert(`Please complete all fallback fields in Mapping #${idx + 1}`)
+            return
+          }
+          if (qrType === "lecture_class" && !m.fallbackLectureClassId) {
+            alert(`Please select a Fallback Lecture Class in Mapping #${idx + 1}`)
+            return
+          }
+          if (qrType === "live_exam" && !m.fallbackLiveExamId) {
+            alert(`Please provide a Fallback Live Exam ID in Mapping #${idx + 1}`)
+            return
+          }
         }
       }
-    }
 
-    const qrId = editingQR?.id || (manualQrId?.trim() || `qrid_${Math.random().toString(36).substring(2, 11)}`)
+      const qrId = editingQR?.id || (manualQrId?.trim() || `qrid_${Math.random().toString(36).substring(2, 11)}`)
 
     const mappingsWithNames = mappings.map((m) => {
       const chapter = (data.chapters as any)[m.subject]?.[m.phase]?.find((c: any) => c.id === m.chapterId)
@@ -371,7 +550,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
           </div>
           <div className="space-y-2">
             <Label htmlFor="qrType">QR Type <span className="text-red-500">*</span></Label>
-            <Select value={qrType} onValueChange={(v: "chapter" | "quiz") => {
+            <Select value={qrType} onValueChange={(v: any) => {
               setQrType(v)
               setQuizId("")
             }}>
@@ -381,6 +560,10 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
               <SelectContent>
                 <SelectItem value="chapter">Chapter</SelectItem>
                 <SelectItem value="quiz">QR Quiz</SelectItem>
+                <SelectItem value="lecture_class">Lecture Class</SelectItem>
+                <SelectItem value="live_exam">Live Exam</SelectItem>
+                <SelectItem value="animated_video">Animated Video Lesson</SelectItem>
+                <SelectItem value="shikho_ai">Shikho AI</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -477,7 +660,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
                   <div className="space-y-2">
                     <Label>Program Class <span className="text-red-500">*</span></Label>
-                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", subject: "", phase: "", chapterId: "", fallbackProgram: "", fallbackPhase: "", fallbackChapterId: "" } : pm))} />
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", subject: "", phase: "", chapterId: "", fallbackClassVal: "", fallbackProgram: "", fallbackPhase: "", fallbackSubject: "", fallbackChapterId: "", fallbackLectureClassId: "", fallbackLiveExamId: "" } : pm))} />
                   </div>
 
                   <div className="space-y-2">
@@ -574,32 +757,42 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
                   {!m.isContentReady && (
                     <div className="space-y-2">
+                      <Label className="font-semibold">Fallback Destination</Label>
+                      
                       <Label>Fallback Class <span className="text-red-500">*</span></Label>
-                      <Select
-                        value={m.fallbackClassVal}
-                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, fallbackClassVal: val, fallbackProgram: "", fallbackPhase: "", fallbackChapterId: "" } : pm))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Class" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="c8">Class 8</SelectItem>
-                          <SelectItem value="c9">Class 9</SelectItem>
-                          <SelectItem value="c10">Class 10</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <ProgramClassSelect 
+                        value={m.fallbackClassVal} 
+                        onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                          ...pm, 
+                          fallbackClassVal: val, 
+                          fallbackProgram: "", 
+                          fallbackPhase: "", 
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: ""
+                        } : pm))} 
+                      />
 
                       <Label>Fallback Program <span className="text-red-500">*</span></Label>
                       <Select
                         value={m.fallbackProgram}
-                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, fallbackProgram: val, fallbackPhase: "", fallbackChapterId: "" } : pm))}
-                        disabled={!m.fallbackClassVal}
+                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                          ...pm, 
+                          fallbackProgram: val, 
+                          fallbackPhase: "", 
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: ""
+                        } : pm))}
+                        disabled={!m.fallbackClassVal || m.fallbackClassVal === 'ssc' || m.fallbackClassVal === 'hsc'}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder={m.fallbackClassVal ? "Select Program" : "Select Class first"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {m.fallbackClassVal && data.academicPrograms[m.fallbackClassVal as keyof typeof data.academicPrograms]?.map((prog) => (
+                          {m.fallbackClassVal && m.fallbackClassVal !== 'ssc' && m.fallbackClassVal !== 'hsc' && data.academicPrograms[m.fallbackClassVal as keyof typeof data.academicPrograms]?.map((prog) => (
                             <SelectItem key={prog} value={prog}>{prog}</SelectItem>
                           ))}
                         </SelectContent>
@@ -609,15 +802,46 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                         <Label>Fallback Phase <span className="text-red-500">*</span></Label>
                         <Select
                           value={m.fallbackPhase}
-                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, fallbackPhase: val, fallbackChapterId: "" } : pm))}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackPhase: val, 
+                            fallbackSubject: "",
+                            fallbackChapterId: "",
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
+                          disabled={!m.fallbackClassVal}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={m.fallbackClassVal ? "Select Phase" : "Select Class first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {m.fallbackClassVal && data.phases.map((p) => (
+                              <SelectItem key={p} value={p}>{p}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2 mt-2">
+                        <Label>Fallback Subject <span className="text-red-500">*</span></Label>
+                        <Select
+                          value={m.fallbackSubject}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackSubject: val, 
+                            fallbackChapterId: "",
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
                           disabled={!m.fallbackProgram}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={m.fallbackProgram ? "Select Phase" : "Select Program first"} />
+                            <SelectValue placeholder={m.fallbackProgram ? "Select Subject" : "Select Program first"} />
                           </SelectTrigger>
                           <SelectContent>
-                            {m.fallbackProgram && data.phases.map((p) => (
-                              <SelectItem key={p} value={p}>{p}</SelectItem>
+                            {m.fallbackProgram && data.subjects[m.fallbackProgram as keyof typeof data.subjects]?.map((subj) => (
+                              <SelectItem key={subj} value={subj}>{subj}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -627,14 +851,19 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                         <Label>Fallback Chapter <span className="text-red-500">*</span></Label>
                         <Select
                           value={m.fallbackChapterId}
-                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, fallbackChapterId: val } : pm))}
-                          disabled={!m.subject || !m.fallbackPhase}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackChapterId: val,
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
+                          disabled={!m.fallbackSubject || !m.fallbackPhase}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={m.subject && m.fallbackPhase ? "Select Chapter" : "Select Subject & Phase first"} />
+                            <SelectValue placeholder={m.fallbackSubject && m.fallbackPhase ? "Select Chapter" : "Select Subject & Phase first"} />
                           </SelectTrigger>
                           <SelectContent>
-                            {m.subject && m.fallbackPhase && (data.chapters as any)[m.subject]?.[m.fallbackPhase]?.map((ch: any) => (
+                            {m.fallbackSubject && m.fallbackPhase && (data.chapters as any)[m.fallbackSubject]?.[m.fallbackPhase]?.map((ch: any) => (
                               <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
                             ))}
                           </SelectContent>
@@ -659,10 +888,700 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                           program: last?.program || "",
                           subject: last?.subject || "",
                           chapterId: "",
+                          lectureClassId: "",
+                          liveExamId: "",
                           isContentReady: false,
+                          fallbackClassVal: "",
                           fallbackProgram: "",
                           fallbackPhase: "",
+                          fallbackSubject: "",
                           fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: "",
+                        },
+                      ]
+                    })
+                  }}
+                >
+                  + Add Another Mapping
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Shikho AI - No destination mapping needed */}
+          {qrType === "shikho_ai" && (
+            <div className="space-y-4">
+              <Separator />
+              <p className="text-sm text-muted-foreground">
+                This QR code will redirect users to the Shikho AI main screen. No destination mapping is required.
+              </p>
+            </div>
+          )}
+
+          {/* Animated Video Lesson - Class, Subject, Chapter (Optional) - No Program/Phase */}
+          {(qrType === "animated_video") && (
+            <div className="space-y-6">
+              <Separator />
+              <h4 className="font-semibold">Destination Mappings</h4>
+
+              {mappings.map((m, idx) => (
+                <div key={idx} className="space-y-4 border rounded-md p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Mapping #{idx + 1}</div>
+                    {mappings.length > 1 && (
+                      <Button variant="outline" size="sm" onClick={() => setMappings((prev) => prev.filter((_, i) => i !== idx))}>Remove</Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Program Class <span className="text-red-500">*</span></Label>
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, subject: "", chapterId: "" } : pm))} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Subject <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.subject}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, subject: val, chapterId: "" } : pm))
+                      }}
+                      disabled={!m.classVal}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.classVal ? "Select Subject" : "Select Class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* Show all subjects regardless of program */}
+                        {m.classVal && Array.from(new Set(Object.values(data.subjects).flat())).map((subj) => (
+                          <SelectItem key={subj} value={subj}>{subj}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Chapter (Optional)</Label>
+                    <Select
+                      value={m.chapterId || "__none__"}
+                      onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, chapterId: val === "__none__" ? "" : val } : pm))}
+                      disabled={!m.subject}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.subject ? "Select Chapter (optional)" : "Select Subject first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None (Redirect to Subject)</SelectItem>
+                        {m.subject && (() => {
+                          // Collect all chapters from all phases for this subject
+                          const allChapters: Array<{id: string, name: string}> = []
+                          data.phases.forEach((phase) => {
+                            const phaseChapters = (data.chapters as any)[m.subject]?.[phase] || []
+                            phaseChapters.forEach((ch: any) => {
+                              if (!allChapters.find(c => c.id === ch.id)) {
+                                allChapters.push(ch)
+                              }
+                            })
+                          })
+                          return allChapters.map((ch) => (
+                            <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                          ))
+                        })()}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Lecture Class - Class, Program, Phase, Subject, Chapter, Lecture Class */}
+          {(qrType === "lecture_class") && (
+            <div className="space-y-6">
+              <Separator />
+              <h4 className="font-semibold">Destination Mappings</h4>
+
+              {mappings.map((m, idx) => (
+                <div key={idx} className="space-y-4 border rounded-md p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Mapping #{idx + 1}</div>
+                    {mappings.length > 1 && (
+                      <Button variant="outline" size="sm" onClick={() => setMappings((prev) => prev.filter((_, i) => i !== idx))}>Remove</Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Program Class <span className="text-red-500">*</span></Label>
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", subject: "", phase: "", chapterId: "", lectureClassId: "", fallbackProgram: "", fallbackPhase: "", fallbackChapterId: "" } : pm))} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Academic Program <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.program}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, program: val, subject: "", chapterId: "", lectureClassId: "" } : pm))
+                      }}
+                      disabled={!m.classVal || m.classVal === 'ssc' || m.classVal === 'hsc'}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.classVal ? "Select Program" : "Select Class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.classVal && m.classVal !== 'ssc' && m.classVal !== 'hsc' && data.academicPrograms[m.classVal as keyof typeof data.academicPrograms]?.map((prog) => (
+                          <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Phase <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.phase}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, phase: val, chapterId: "", lectureClassId: "" } : pm))
+                      }}
+                      disabled={!m.classVal}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.classVal ? "Select Phase" : "Select Class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.classVal && data.phases.map((p) => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Subject <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.subject}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, subject: val, chapterId: "", lectureClassId: "" } : pm))
+                      }}
+                      disabled={!m.program}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.program ? "Select Subject" : "Select Program first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.program && data.subjects[m.program as keyof typeof data.subjects]?.map((subj) => (
+                          <SelectItem key={subj} value={subj}>{subj}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Chapter <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.chapterId}
+                      onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, chapterId: val, lectureClassId: "" } : pm))}
+                      disabled={!m.subject || !m.phase}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.subject && m.phase ? "Select Chapter" : "Select Subject & Phase first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.subject && m.phase && (data.chapters as any)[m.subject]?.[m.phase]?.map((ch: any) => (
+                          <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Lecture Class <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.lectureClassId}
+                      onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, lectureClassId: val } : pm))}
+                      disabled={!m.subject || !m.phase || !m.chapterId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.subject && m.phase && m.chapterId ? "Select Lecture Class" : "Select Chapter first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.subject && m.phase && m.chapterId && (data.lectureClasses as any)[m.subject]?.[m.phase]?.[m.chapterId]?.map((lec: any) => (
+                          <SelectItem key={lec.id} value={lec.id}>{lec.name}</SelectItem>
+                        ))}
+                        {m.subject && m.phase && m.chapterId && (!(data.lectureClasses as any)[m.subject]?.[m.phase]?.[m.chapterId] || (data.lectureClasses as any)[m.subject]?.[m.phase]?.[m.chapterId]?.length === 0) && (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">No lecture classes available</div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <Label>Content Ready Status</Label>
+                    <div className="flex items-center space-x-3">
+                      <Switch
+                        checked={!!m.isContentReady}
+                        onCheckedChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, isContentReady: val } : pm))}
+                      />
+                      <span className="text-sm">Is Target Content Ready?</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">When OFF, scans will redirect to fallback content</p>
+                  </div>
+
+                  {!m.isContentReady && (
+                    <div className="space-y-2">
+                      <Label className="font-semibold">Fallback Destination</Label>
+                      
+                      <Label>Fallback Class <span className="text-red-500">*</span></Label>
+                      <ProgramClassSelect 
+                        value={m.fallbackClassVal} 
+                        onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                          ...pm, 
+                          fallbackClassVal: val, 
+                          fallbackProgram: "", 
+                          fallbackPhase: "", 
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: ""
+                        } : pm))} 
+                      />
+
+                      <Label>Fallback Program <span className="text-red-500">*</span></Label>
+                      <Select
+                        value={m.fallbackProgram}
+                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                          ...pm, 
+                          fallbackProgram: val, 
+                          fallbackPhase: "", 
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: ""
+                        } : pm))}
+                        disabled={!m.fallbackClassVal || m.fallbackClassVal === 'ssc' || m.fallbackClassVal === 'hsc'}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={m.fallbackClassVal ? "Select Program" : "Select Class first"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {m.fallbackClassVal && m.fallbackClassVal !== 'ssc' && m.fallbackClassVal !== 'hsc' && data.academicPrograms[m.fallbackClassVal as keyof typeof data.academicPrograms]?.map((prog) => (
+                            <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <div className="space-y-2 mt-2">
+                        <Label>Fallback Phase <span className="text-red-500">*</span></Label>
+                        <Select
+                          value={m.fallbackPhase}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackPhase: val, 
+                            fallbackSubject: "",
+                            fallbackChapterId: "",
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
+                          disabled={!m.fallbackClassVal}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={m.fallbackClassVal ? "Select Phase" : "Select Class first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {m.fallbackClassVal && data.phases.map((p) => (
+                              <SelectItem key={p} value={p}>{p}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2 mt-2">
+                        <Label>Fallback Subject <span className="text-red-500">*</span></Label>
+                        <Select
+                          value={m.fallbackSubject}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackSubject: val, 
+                            fallbackChapterId: "",
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
+                          disabled={!m.fallbackProgram}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={m.fallbackProgram ? "Select Subject" : "Select Program first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {m.fallbackProgram && data.subjects[m.fallbackProgram as keyof typeof data.subjects]?.map((subj) => (
+                              <SelectItem key={subj} value={subj}>{subj}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2 mt-2">
+                        <Label>Fallback Chapter <span className="text-red-500">*</span></Label>
+                        <Select
+                          value={m.fallbackChapterId}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackChapterId: val,
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
+                          disabled={!m.fallbackSubject || !m.fallbackPhase}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={m.fallbackSubject && m.fallbackPhase ? "Select Chapter" : "Select Subject & Phase first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {m.fallbackSubject && m.fallbackPhase && (data.chapters as any)[m.fallbackSubject]?.[m.fallbackPhase]?.map((ch: any) => (
+                              <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Fallback Lecture Class (for Lecture Class QR type) */}
+                      {qrType === "lecture_class" && (
+                        <div className="space-y-2 mt-2">
+                          <Label>Fallback Lecture Class <span className="text-red-500">*</span></Label>
+                          <Select
+                            value={m.fallbackLectureClassId}
+                            onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, fallbackLectureClassId: val } : pm))}
+                            disabled={!m.fallbackSubject || !m.fallbackPhase || !m.fallbackChapterId}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={m.fallbackSubject && m.fallbackPhase && m.fallbackChapterId ? "Select Lecture Class" : "Select Chapter first"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {m.fallbackSubject && m.fallbackPhase && m.fallbackChapterId && (data.lectureClasses as any)[m.fallbackSubject]?.[m.fallbackPhase]?.[m.fallbackChapterId]?.map((lec: any) => (
+                                <SelectItem key={lec.id} value={lec.id}>{lec.name}</SelectItem>
+                              ))}
+                              {m.fallbackSubject && m.fallbackPhase && m.fallbackChapterId && (!(data.lectureClasses as any)[m.fallbackSubject]?.[m.fallbackPhase]?.[m.fallbackChapterId] || (data.lectureClasses as any)[m.fallbackSubject]?.[m.fallbackPhase]?.[m.fallbackChapterId]?.length === 0) && (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">No lecture classes available</div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMappings((prev) => {
+                      const last = prev[prev.length - 1]
+                      return [
+                        ...prev,
+                        {
+                          classVal: "",
+                          phase: last?.phase || "",
+                          program: last?.program || "",
+                          subject: last?.subject || "",
+                          chapterId: "",
+                          lectureClassId: "",
+                          isContentReady: false,
+                          fallbackClassVal: "",
+                          fallbackProgram: "",
+                          fallbackPhase: "",
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: "",
+                        },
+                      ]
+                    })
+                  }}
+                >
+                  + Add Another Mapping
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Live Exam - Class, Program, Phase, Subject, Chapter, Live Exam ID */}
+          {(qrType === "live_exam") && (
+            <div className="space-y-6">
+              <Separator />
+              <h4 className="font-semibold">Destination Mappings</h4>
+
+              {mappings.map((m, idx) => (
+                <div key={idx} className="space-y-4 border rounded-md p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Mapping #{idx + 1}</div>
+                    {mappings.length > 1 && (
+                      <Button variant="outline" size="sm" onClick={() => setMappings((prev) => prev.filter((_, i) => i !== idx))}>Remove</Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Program Class <span className="text-red-500">*</span></Label>
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", subject: "", phase: "", chapterId: "", liveExamId: "", fallbackClassVal: "", fallbackProgram: "", fallbackPhase: "", fallbackSubject: "", fallbackChapterId: "", fallbackLectureClassId: "", fallbackLiveExamId: "" } : pm))} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Academic Program <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.program}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, program: val, subject: "", chapterId: "", liveExamId: "" } : pm))
+                      }}
+                      disabled={!m.classVal || m.classVal === 'ssc' || m.classVal === 'hsc'}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.classVal ? "Select Program" : "Select Class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.classVal && m.classVal !== 'ssc' && m.classVal !== 'hsc' && data.academicPrograms[m.classVal as keyof typeof data.academicPrograms]?.map((prog) => (
+                          <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Phase <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.phase}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, phase: val, chapterId: "", liveExamId: "" } : pm))
+                      }}
+                      disabled={!m.classVal}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.classVal ? "Select Phase" : "Select Class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.classVal && data.phases.map((p) => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Subject <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.subject}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, subject: val, chapterId: "", liveExamId: "" } : pm))
+                      }}
+                      disabled={!m.program}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.program ? "Select Subject" : "Select Program first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.program && data.subjects[m.program as keyof typeof data.subjects]?.map((subj) => (
+                          <SelectItem key={subj} value={subj}>{subj}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Chapter <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.chapterId}
+                      onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, chapterId: val, liveExamId: "" } : pm))}
+                      disabled={!m.subject || !m.phase}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.subject && m.phase ? "Select Chapter" : "Select Subject & Phase first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.subject && m.phase && (data.chapters as any)[m.subject]?.[m.phase]?.map((ch: any) => (
+                          <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Live Exam ID <span className="text-red-500">*</span></Label>
+                    <Input
+                      value={m.liveExamId}
+                      onChange={(e) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, liveExamId: e.target.value } : pm))}
+                      placeholder="e.g., exam_12345"
+                      disabled={!m.chapterId}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <Label>Content Ready Status</Label>
+                    <div className="flex items-center space-x-3">
+                      <Switch
+                        checked={!!m.isContentReady}
+                        onCheckedChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, isContentReady: val } : pm))}
+                      />
+                      <span className="text-sm">Is Target Content Ready?</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">When OFF, scans will redirect to fallback content</p>
+                  </div>
+
+                  {!m.isContentReady && (
+                    <div className="space-y-2">
+                      <Label className="font-semibold">Fallback Destination</Label>
+                      
+                      <Label>Fallback Class <span className="text-red-500">*</span></Label>
+                      <ProgramClassSelect 
+                        value={m.fallbackClassVal} 
+                        onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                          ...pm, 
+                          fallbackClassVal: val, 
+                          fallbackProgram: "", 
+                          fallbackPhase: "", 
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: ""
+                        } : pm))} 
+                      />
+
+                      <Label>Fallback Program <span className="text-red-500">*</span></Label>
+                      <Select
+                        value={m.fallbackProgram}
+                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                          ...pm, 
+                          fallbackProgram: val, 
+                          fallbackPhase: "", 
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: ""
+                        } : pm))}
+                        disabled={!m.fallbackClassVal || m.fallbackClassVal === 'ssc' || m.fallbackClassVal === 'hsc'}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={m.fallbackClassVal ? "Select Program" : "Select Class first"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {m.fallbackClassVal && m.fallbackClassVal !== 'ssc' && m.fallbackClassVal !== 'hsc' && data.academicPrograms[m.fallbackClassVal as keyof typeof data.academicPrograms]?.map((prog) => (
+                            <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <div className="space-y-2 mt-2">
+                        <Label>Fallback Phase <span className="text-red-500">*</span></Label>
+                        <Select
+                          value={m.fallbackPhase}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackPhase: val, 
+                            fallbackSubject: "",
+                            fallbackChapterId: "",
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
+                          disabled={!m.fallbackClassVal}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={m.fallbackClassVal ? "Select Phase" : "Select Class first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {m.fallbackClassVal && data.phases.map((p) => (
+                              <SelectItem key={p} value={p}>{p}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2 mt-2">
+                        <Label>Fallback Subject <span className="text-red-500">*</span></Label>
+                        <Select
+                          value={m.fallbackSubject}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackSubject: val, 
+                            fallbackChapterId: "",
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
+                          disabled={!m.fallbackProgram}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={m.fallbackProgram ? "Select Subject" : "Select Program first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {m.fallbackProgram && data.subjects[m.fallbackProgram as keyof typeof data.subjects]?.map((subj) => (
+                              <SelectItem key={subj} value={subj}>{subj}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2 mt-2">
+                        <Label>Fallback Chapter <span className="text-red-500">*</span></Label>
+                        <Select
+                          value={m.fallbackChapterId}
+                          onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { 
+                            ...pm, 
+                            fallbackChapterId: val,
+                            fallbackLectureClassId: "",
+                            fallbackLiveExamId: ""
+                          } : pm))}
+                          disabled={!m.fallbackSubject || !m.fallbackPhase}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={m.fallbackSubject && m.fallbackPhase ? "Select Chapter" : "Select Subject & Phase first"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {m.fallbackSubject && m.fallbackPhase && (data.chapters as any)[m.fallbackSubject]?.[m.fallbackPhase]?.map((ch: any) => (
+                              <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Fallback Live Exam ID (for Live Exam QR type) */}
+                      {qrType === "live_exam" && (
+                        <div className="space-y-2 mt-2">
+                          <Label>Fallback Live Exam ID <span className="text-red-500">*</span></Label>
+                          <Input
+                            value={m.fallbackLiveExamId}
+                            onChange={(e) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, fallbackLiveExamId: e.target.value } : pm))}
+                            placeholder="e.g., exam_12345"
+                            disabled={!m.fallbackChapterId}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMappings((prev) => {
+                      const last = prev[prev.length - 1]
+                      return [
+                        ...prev,
+                        {
+                          classVal: "",
+                          phase: last?.phase || "",
+                          program: last?.program || "",
+                          subject: last?.subject || "",
+                          chapterId: "",
+                          liveExamId: "",
+                          isContentReady: false,
+                          fallbackClassVal: "",
+                          fallbackProgram: "",
+                          fallbackPhase: "",
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: "",
                         },
                       ]
                     })

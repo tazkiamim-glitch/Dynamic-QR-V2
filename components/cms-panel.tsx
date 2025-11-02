@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Pencil, Download } from "lucide-react"
+import { Plus, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import QRFormSheet from "@/components/qr-form-sheet"
 import QRSuccessDialog from "@/components/qr-success-dialog"
 import QRQuizBuilder from "@/components/qr-quiz-builder"
@@ -77,26 +78,6 @@ export default function CMSPanel({ qrDatabase, setQrDatabase, quizDatabase, setQ
     setIsFormOpen(false)
   }
 
-  const handleDownload = (qr: QRData) => {
-    // Generate QR code and download (client-only)
-    ;(async () => {
-      try {
-        const mod = await import("qrious")
-        const QRCode = (mod as any).default || (mod as any)
-        const qrCode = new QRCode({
-          value: qr.url,
-          size: 400,
-        })
-
-        const link = document.createElement("a")
-        link.href = qrCode.toDataURL()
-        link.download = `${qr.id}.png`
-        link.click()
-      } catch (err) {
-        console.error("Failed to generate QR for download:", err)
-      }
-    })()
-  }
 
   return (
     <div className="flex h-[calc(100vh-57px)]">
@@ -188,25 +169,134 @@ export default function CMSPanel({ qrDatabase, setQrDatabase, quizDatabase, setQ
                           <code className="text-xs bg-muted px-2 py-1 rounded">{qr.id}</code>
                         </TableCell>
                         <TableCell className="text-sm">
-                          {qr.qrType === "quiz" ? (
-                            <span>QR Quiz</span>
-                          ) : Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
-                            <div>
-                              <div>
-                                {qr.mappings[0].program} &gt; {qr.mappings[0].subject} &gt; {(qr.mappings[0].chapterName || "").substring(0, 30)}
-                              </div>
-                              {qr.mappings.length > 1 && (
-                                <div className="text-xs text-muted-foreground">+ {qr.mappings.length - 1} more mapping{qr.mappings.length - 1 > 1 ? "s" : ""}</div>
-                              )}
-                            </div>
-                          ) : (
-                            <span>
-                              {qr.program} &gt; {qr.subject} &gt; {(qr.chapterName || "").substring(0, 30)}
-                            </span>
-                          )}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="cursor-pointer">
+                                  {qr.qrType === "quiz" ? (
+                                    <span>QR Quiz</span>
+                                  ) : qr.qrType === "shikho_ai" ? (
+                                    <span>Shikho AI</span>
+                                  ) : qr.qrType === "animated_video" ? (
+                                    Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                                      <div>
+                                        <div>
+                                          {qr.mappings[0].subject}
+                                          {qr.mappings[0].chapterName ? ` > ${(qr.mappings[0].chapterName || "").substring(0, 30)}` : ""}
+                                        </div>
+                                        {qr.mappings.length > 1 && (
+                                          <div className="text-xs text-muted-foreground">+ {qr.mappings.length - 1} more mapping{qr.mappings.length - 1 > 1 ? "s" : ""}</div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span>Animated Video Lesson</span>
+                                    )
+                                  ) : qr.qrType === "lecture_class" ? (
+                                    Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                                      <div>
+                                        <div>
+                                          {qr.mappings[0].program} &gt; {qr.mappings[0].subject} &gt; {(qr.mappings[0].chapterName || "").substring(0, 30)}
+                                        </div>
+                                        {qr.mappings.length > 1 && (
+                                          <div className="text-xs text-muted-foreground">+ {qr.mappings.length - 1} more mapping{qr.mappings.length - 1 > 1 ? "s" : ""}</div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span>Lecture Class</span>
+                                    )
+                                  ) : qr.qrType === "live_exam" ? (
+                                    Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                                      <div>
+                                        <div>
+                                          {qr.mappings[0].program} &gt; {qr.mappings[0].subject} &gt; {(qr.mappings[0].chapterName || "").substring(0, 30)}
+                                        </div>
+                                        {qr.mappings.length > 1 && (
+                                          <div className="text-xs text-muted-foreground">+ {qr.mappings.length - 1} more mapping{qr.mappings.length - 1 > 1 ? "s" : ""}</div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span>Live Exam</span>
+                                    )
+                                  ) : Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                                    <div>
+                                      <div>
+                                        {qr.mappings[0].program} &gt; {qr.mappings[0].subject} &gt; {(qr.mappings[0].chapterName || "").substring(0, 30)}
+                                      </div>
+                                      {qr.mappings.length > 1 && (
+                                        <div className="text-xs text-muted-foreground">+ {qr.mappings.length - 1} more mapping{qr.mappings.length - 1 > 1 ? "s" : ""}</div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span>
+                                      {qr.program} &gt; {qr.subject} &gt; {(qr.chapterName || "").substring(0, 30)}
+                                    </span>
+                                  )}
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-md">
+                                <div className="space-y-1">
+                                  {qr.qrType === "quiz" ? (
+                                    <div>QR Quiz</div>
+                                  ) : qr.qrType === "shikho_ai" ? (
+                                    <div>Shikho AI</div>
+                                  ) : qr.qrType === "animated_video" ? (
+                                    Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                                      qr.mappings.map((m, idx) => (
+                                        <div key={idx}>
+                                          {m.classVal ? `${m.classVal.toUpperCase()} > ` : ""}
+                                          {m.program ? `${m.program} > ` : ""}
+                                          {m.subject}
+                                          {m.chapterName ? ` > ${m.chapterName}` : " (Subject Level)"}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div>Animated Video Lesson</div>
+                                    )
+                                  ) : qr.qrType === "lecture_class" ? (
+                                    Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                                      qr.mappings.map((m, idx) => (
+                                        <div key={idx}>
+                                          {m.classVal ? `${m.classVal.toUpperCase()} > ` : ""}
+                                          {m.program ? `${m.program} > ` : ""}
+                                          {m.subject} > {m.chapterName || m.chapterId} > Lecture Class: {(qr as any).lectureClassId || m.lectureClassId || "N/A"}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div>Lecture Class</div>
+                                    )
+                                  ) : qr.qrType === "live_exam" ? (
+                                    Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                                      qr.mappings.map((m, idx) => (
+                                        <div key={idx}>
+                                          {m.classVal ? `${m.classVal.toUpperCase()} > ` : ""}
+                                          {m.program ? `${m.program} > ` : ""}
+                                          {m.subject} > {m.chapterName || m.chapterId} > Live Exam: {(qr as any).liveExamId || m.liveExamId || "N/A"}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div>Live Exam</div>
+                                    )
+                                  ) : Array.isArray(qr.mappings) && qr.mappings.length > 0 ? (
+                                    qr.mappings.map((m, idx) => (
+                                      <div key={idx}>
+                                        {m.classVal ? `${m.classVal.toUpperCase()} > ` : ""}
+                                        {m.program ? `${m.program} > ` : ""}
+                                        {m.subject} > {m.chapterName || m.chapterId || "Chapter"}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div>
+                                      {qr.program ? `${qr.program} > ` : ""}
+                                      {qr.subject} > {qr.chapterName || qr.chapterId || "Chapter"}
+                                    </div>
+                                  )}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </TableCell>
                         <TableCell>
-                          {qr.qrType === "quiz" ? (
+                          {qr.qrType === "quiz" || qr.qrType === "shikho_ai" || qr.qrType === "animated_video" ? (
                             <Badge className="bg-green-500">
                               <span className="mr-2">●</span>
                               Live
@@ -235,16 +325,10 @@ export default function CMSPanel({ qrDatabase, setQrDatabase, quizDatabase, setQ
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-3">
-                            <Pencil
-                              className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-purple-600"
-                              onClick={() => handleEdit(qr)}
-                            />
-                            <Download
-                              className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-purple-600"
-                              onClick={() => handleDownload(qr)}
-                            />
-                          </div>
+                          <Pencil
+                            className="h-4 w-4 cursor-pointer text-muted-foreground hover:text-purple-600"
+                            onClick={() => handleEdit(qr)}
+                          />
                         </TableCell>
                       </TableRow>
                     ))
