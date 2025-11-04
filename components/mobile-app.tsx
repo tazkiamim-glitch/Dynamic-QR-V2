@@ -119,9 +119,10 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
   const [paywall, setPaywall] = useState<{ requiredProgram: string } | null>(null)
   
   // Animated Video screens
-  const [animatedVideoScreen, setAnimatedVideoScreen] = useState<"subject" | "chapter" | null>(null)
+  const [animatedVideoScreen, setAnimatedVideoScreen] = useState<"subject" | "chapter" | "topic" | null>(null)
   const [animatedVideoSubject, setAnimatedVideoSubject] = useState<string | null>(null)
   const [animatedVideoChapter, setAnimatedVideoChapter] = useState<string | null>(null)
+  const [animatedVideoTopic, setAnimatedVideoTopic] = useState<string | null>(null)
   
   // Live Exam screen
   const [liveExamData, setLiveExamData] = useState<{
@@ -205,16 +206,18 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
       return
     }
 
-    // Handle Animated Video QR type - No program/phase needed, only class/subject/chapter
+    // Handle Animated Video QR type - No program/phase needed, only class/subject/chapter/topic
     if (qrData.qrType === "animated_video") {
       let targetSubject = ""
       let targetChapter = ""
+      let targetTopic = ""
 
       if (Array.isArray(qrData.mappings) && qrData.mappings.length) {
         const forUser = qrData.mappings.find((m: any) => m.classVal === userClass) || qrData.mappings[0]
         if (forUser) {
           targetSubject = forUser.subject
           targetChapter = forUser.chapterId || ""
+          targetTopic = forUser.topicId || ""
         }
       }
 
@@ -225,11 +228,18 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
 
       // No program check needed for animated videos - they're class-wise
       setAnimatedVideoSubject(targetSubject)
-      if (targetChapter && targetChapter !== "__none__") {
+      if (targetTopic && targetTopic !== "__none__") {
+        // Navigate directly to topic-specific video
         setAnimatedVideoChapter(targetChapter)
+        setAnimatedVideoTopic(targetTopic)
+        setAnimatedVideoScreen("topic")
+      } else if (targetChapter && targetChapter !== "__none__") {
+        setAnimatedVideoChapter(targetChapter)
+        setAnimatedVideoTopic(null)
         setAnimatedVideoScreen("chapter")
       } else {
         setAnimatedVideoChapter(null)
+        setAnimatedVideoTopic(null)
         setAnimatedVideoScreen("subject")
       }
       setActiveTab("courses")
@@ -763,6 +773,7 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                         setAnimatedVideoScreen(null)
                         setAnimatedVideoSubject(null)
                         setAnimatedVideoChapter(null)
+                        setAnimatedVideoTopic(null)
                       }} 
                       className="p-1"
                     >
@@ -836,7 +847,14 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                   {/* Topic/Lesson List */}
                   <div className="space-y-3">
                     {animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter]?.map((topic, idx) => (
-                      <Card key={topic.id} className="overflow-hidden border border-gray-200 rounded-lg shadow-sm">
+                      <Card 
+                        key={topic.id} 
+                        className="overflow-hidden border border-gray-200 rounded-lg shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => {
+                          setAnimatedVideoTopic(topic.id)
+                          setAnimatedVideoScreen("topic")
+                        }}
+                      >
                         <div className="flex">
                           {/* Thumbnail */}
                           <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center text-4xl flex-shrink-0 border-r border-gray-200">
@@ -858,6 +876,68 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                         <div>এই অধ্যায়ে এখনও কোন টপিক নেই</div>
                       </Card>
                     )}
+                  </div>
+                </>
+              )}
+
+              {/* Topic-Specific Video Screen */}
+              {animatedVideoScreen === "topic" && animatedVideoSubject && animatedVideoChapter && animatedVideoTopic && (
+                <>
+                  {/* Topic Screen Header */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <button 
+                      onClick={() => {
+                        setAnimatedVideoScreen("chapter")
+                        setAnimatedVideoTopic(null)
+                      }} 
+                      className="p-1"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1">
+                      {(() => {
+                        const topic = animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter]?.find((t) => t.id === animatedVideoTopic)
+                        const chapter = chapters.find((ch) => ch.id === animatedVideoChapter && ch.subject === animatedVideoSubject)
+                        return (
+                          <>
+                            <h1 className="text-xl font-bold text-[#1a237e]">{topic?.name || "Topic"}</h1>
+                            <p className="text-sm text-[#424242] mt-1">
+                              {chapter?.name || "Chapter"}
+                            </p>
+                          </>
+                        )
+                      })()}
+                    </div>
+                    <div className="text-2xl">অ</div>
+                  </div>
+
+                  {/* Topic Video Player */}
+                  <div className="space-y-4">
+                    <Card className="overflow-hidden">
+                      <div className="aspect-video bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                        <div className="text-center text-white">
+                          <div className="text-6xl mb-4">
+                            {animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter]?.find((t) => t.id === animatedVideoTopic)?.thumbnail || "▶️"}
+                          </div>
+                          <div className="text-lg font-semibold">
+                            {animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter]?.find((t) => t.id === animatedVideoTopic)?.name || "Topic Video"}
+                          </div>
+                          <p className="text-sm mt-2 opacity-90">এনিমেটেড ভিডিও</p>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Topic Details */}
+                    <Card className="p-4">
+                      <h3 className="font-semibold text-[#1a237e] mb-2">টপিক সম্পর্কে</h3>
+                      <p className="text-sm text-gray-600">
+                        {(() => {
+                          const chapter = chapters.find((ch) => ch.id === animatedVideoChapter && ch.subject === animatedVideoSubject)
+                          const topic = animatedVideoTopics[animatedVideoSubject]?.[animatedVideoChapter]?.find((t) => t.id === animatedVideoTopic)
+                          return `এই টপিকটি ${chapter?.name || ""} এর একটি অংশ এবং ${topic?.name || ""} সম্পর্কে বিস্তারিত ব্যাখ্যা প্রদান করে।`
+                        })()}
+                      </p>
+                    </Card>
                   </div>
                 </>
               )}
@@ -1096,11 +1176,18 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                     } else if (next.animatedVideo) {
                       // Animated videos don't require program switch - they're class-wise
                       setAnimatedVideoSubject(next.subject)
-                      if (next.chapterId && next.chapterId !== "__none__") {
+                      const topicId = (next as any).topicId
+                      if (topicId && topicId !== "__none__") {
+                        setAnimatedVideoChapter(next.chapterId || "")
+                        setAnimatedVideoTopic(topicId)
+                        setAnimatedVideoScreen("topic")
+                      } else if (next.chapterId && next.chapterId !== "__none__") {
                         setAnimatedVideoChapter(next.chapterId)
+                        setAnimatedVideoTopic(null)
                         setAnimatedVideoScreen("chapter")
                       } else {
                         setAnimatedVideoChapter(null)
+                        setAnimatedVideoTopic(null)
                         setAnimatedVideoScreen("subject")
                       }
                       setActiveTab("courses")
