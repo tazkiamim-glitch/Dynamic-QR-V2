@@ -110,7 +110,7 @@ interface QRFormSheetProps {
 }
 
 export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, quizDatabase = [] }: QRFormSheetProps) {
-  const [qrType, setQrType] = useState<"chapter" | "quiz" | "lecture_class" | "animated_video" | "shikho_ai" | "">("")
+  const [qrType, setQrType] = useState<"chapter" | "quiz" | "lecture_class" | "animated_video" | "shikho_ai" | "report_card" | "">("")
   const [name, setName] = useState("")
   const [status, setStatus] = useState<"Published" | "Unpublished">("Published")
   const [manualQrId, setManualQrId] = useState("")
@@ -127,6 +127,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       classVal: "",
       phase: "",
       program: "",
+      group: "",
       subject: "",
       chapterId: "",
       lectureClassId: "",
@@ -161,6 +162,11 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       { value: "c11", label: "Class 11" },
       { value: "c12", label: "Class 12" },
     ],
+  }
+
+  // Helper function to check if class is above 8
+  const isClassAbove8 = (classVal: string) => {
+    return classVal === "c9" || classVal === "c10" || classVal === "c11" || classVal === "c12"
   }
 
   function ProgramClassSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -249,6 +255,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
             classVal: m.classVal || m.class || "",
             phase: m.phase || "",
             program: m.program || "",
+            group: m.group || "",
             subject: m.subject || "",
             chapterId: m.chapterId || "",
             lectureClassId: m.lectureClassId || "",
@@ -271,6 +278,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
             classVal: editingQR.class || "",
             phase: editingQR.phase || "",
             program: editingQR.program || "",
+            group: (editingQR as any).group || "",
             subject: editingQR.subject || "",
             chapterId: editingQR.chapterId || "",
             topicId: (editingQR as any).topicId || "",
@@ -439,15 +447,19 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       return
     }
 
-    // Animated Video Lesson type - no isContentReady/fallback needed, chapter is optional, no program/phase
+    // Animated Video Lesson type - no isContentReady/fallback needed, subject, chapter and topic are mandatory
     if (qrType === "animated_video") {
       if (!mappings.length) {
         alert("Please add at least one destination mapping")
         return
       }
       for (const [idx, m] of mappings.entries()) {
-        if (!m.classVal || !m.subject) {
-          alert(`Please fill all required fields in Mapping #${idx + 1}`)
+        if (!m.classVal || !m.subject || !m.chapterId || !m.topicId) {
+          alert(`Please fill all required fields (Subject, Chapter, and Topic) in Mapping #${idx + 1}`)
+          return
+        }
+        if (isClassAbove8(m.classVal) && !m.group) {
+          alert(`Please select a Group in Mapping #${idx + 1}`)
           return
         }
       }
@@ -455,7 +467,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       const mappingsWithNames = mappings.map((m) => {
         // Find chapter name from any phase (since chapters exist per phase)
         let chapterName = ""
-        if (m.chapterId && m.chapterId !== "__none__") {
+        if (m.chapterId) {
           for (const phase of data.phases) {
             const chapter = (data.chapters as any)[m.subject]?.[phase]?.find((c: any) => c.id === m.chapterId)
             if (chapter) {
@@ -485,6 +497,54 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       return
     }
 
+    // Report Card type - Class, Academic Program, Subject, Chapter - no fallback destination
+    if (qrType === "report_card") {
+      if (!mappings.length) {
+        alert("Please add at least one destination mapping")
+        return
+      }
+      for (const [idx, m] of mappings.entries()) {
+        if (!m.classVal || !m.program || !m.subject || !m.chapterId) {
+          alert(`Please fill all required fields (Class, Academic Program, Subject, Chapter) in Mapping #${idx + 1}`)
+          return
+        }
+        if (isClassAbove8(m.classVal) && !m.group) {
+          alert(`Please select a Group in Mapping #${idx + 1}`)
+          return
+        }
+      }
+      const qrId = editingQR?.id || (manualQrId?.trim() || `qrid_${Math.random().toString(36).substring(2, 11)}`)
+      const mappingsWithNames = mappings.map((m) => {
+        // Find chapter name from any phase (since chapters exist per phase)
+        let chapterName = ""
+        if (m.chapterId) {
+          for (const phase of data.phases) {
+            const chapter = (data.chapters as any)[m.subject]?.[phase]?.find((c: any) => c.id === m.chapterId)
+            if (chapter) {
+              chapterName = chapter.name
+              break
+            }
+          }
+        }
+        return {
+          ...m,
+          chapterName,
+        }
+      })
+      const first = mappingsWithNames[0]
+      const defaultName = `[Report Card] ${first.subject} - ${first.chapterName.substring(0, 20)}...`
+      const qrData = {
+        id: qrId,
+        name: name || defaultName,
+        qrType: "report_card" as const,
+        url: `https://shikho.com/qr?id=${qrId}`,
+        mappings: mappingsWithNames,
+        status,
+      }
+      onSubmit(qrData)
+      return
+    }
+
     // Lecture Class types with destination mappings
     if (qrType === "lecture_class") {
       if (!mappings.length) {
@@ -494,6 +554,10 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       for (const [idx, m] of mappings.entries()) {
         if (!m.classVal || !m.program || !m.phase || !m.subject || !m.chapterId) {
           alert(`Please fill all required fields in Mapping #${idx + 1}`)
+          return
+        }
+        if (isClassAbove8(m.classVal) && !m.group) {
+          alert(`Please select a Group in Mapping #${idx + 1}`)
           return
         }
         if (!m.lectureClassId) {
@@ -540,6 +604,10 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
     for (const [idx, m] of mappings.entries()) {
       if (!m.classVal || !m.program || !m.phase || !m.subject || !m.chapterId) {
         alert(`Please fill all required fields in Mapping #${idx + 1}`)
+        return
+      }
+      if (isClassAbove8(m.classVal) && !m.group) {
+        alert(`Please select a Group in Mapping #${idx + 1}`)
         return
       }
         if (!m.isContentReady) {
@@ -613,6 +681,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                 <SelectItem value="quiz">QR Quiz</SelectItem>
                 <SelectItem value="lecture_class">Lecture Class</SelectItem>
                 <SelectItem value="animated_video">Animated Video Lesson</SelectItem>
+                <SelectItem value="report_card">Report Card</SelectItem>
                 <SelectItem value="shikho_ai">Shikho AI</SelectItem>
               </SelectContent>
             </Select>
@@ -710,8 +779,28 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
                   <div className="space-y-2">
                     <Label>Program Class <span className="text-red-500">*</span></Label>
-                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", subject: "", phase: "", chapterId: "", fallbackClassVal: "", fallbackProgram: "", fallbackPhase: "", fallbackSubject: "", fallbackChapterId: "", fallbackLectureClassId: "", fallbackLiveExamId: "" } : pm))} />
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", group: "", subject: "", phase: "", chapterId: "", fallbackClassVal: "", fallbackProgram: "", fallbackPhase: "", fallbackSubject: "", fallbackChapterId: "", fallbackLectureClassId: "", fallbackLiveExamId: "" } : pm))} />
                   </div>
+
+                  {isClassAbove8(m.classVal) && (
+                    <div className="space-y-2">
+                      <Label>Group <span className="text-red-500">*</span></Label>
+                      <Select
+                        value={m.group || ""}
+                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, group: val } : pm))}
+                        disabled={!m.classVal}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SCI">SCI</SelectItem>
+                          <SelectItem value="BS">BS</SelectItem>
+                          <SelectItem value="HUM">HUM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Academic Program <span className="text-red-500">*</span></Label>
@@ -936,6 +1025,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                           classVal: "",
                           phase: last?.phase || "",
                           program: last?.program || "",
+                          group: "",
                           subject: last?.subject || "",
                           chapterId: "",
                           lectureClassId: "",
@@ -1051,8 +1141,28 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
                   <div className="space-y-2">
                     <Label>Program Class <span className="text-red-500">*</span></Label>
-                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, subject: "", chapterId: "", topicId: "" } : pm))} />
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, group: "", subject: "", chapterId: "", topicId: "" } : pm))} />
                   </div>
+
+                  {isClassAbove8(m.classVal) && (
+                    <div className="space-y-2">
+                      <Label>Group <span className="text-red-500">*</span></Label>
+                      <Select
+                        value={m.group || ""}
+                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, group: val } : pm))}
+                        disabled={!m.classVal}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SCI">SCI</SelectItem>
+                          <SelectItem value="BS">BS</SelectItem>
+                          <SelectItem value="HUM">HUM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Subject <span className="text-red-500">*</span></Label>
@@ -1076,17 +1186,16 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Chapter (Optional)</Label>
+                    <Label>Chapter <span className="text-red-500">*</span></Label>
                     <Select
-                      value={m.chapterId || "__none__"}
-                      onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, chapterId: val === "__none__" ? "" : val, topicId: "" } : pm))}
+                      value={m.chapterId || ""}
+                      onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, chapterId: val, topicId: "" } : pm))}
                       disabled={!m.subject}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={m.subject ? "Select Chapter (optional)" : "Select Subject first"} />
+                        <SelectValue placeholder={m.subject ? "Select Chapter" : "Select Subject first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">None (Redirect to Subject)</SelectItem>
                         {m.subject && (() => {
                           // Collect all chapters from all phases for this subject
                           const allChapters: Array<{id: string, name: string}> = []
@@ -1106,52 +1215,233 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                     </Select>
                   </div>
 
-                  {m.chapterId && m.chapterId !== "__none__" && (
+                  <div className="space-y-2">
+                    <Label>Topic <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.topicId || ""}
+                      onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, topicId: val } : pm))}
+                      disabled={!m.chapterId || !m.subject}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.chapterId && m.subject ? "Select Topic" : "Select Chapter first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.subject && m.chapterId && (() => {
+                          // Get topics from mobile-app data structure
+                          // We need to import or replicate the animatedVideoTopics structure
+                          const animatedVideoTopics: Record<string, Record<string, Array<{ id: string; name: string }>>> = {
+                            Physics: {
+                              "ch1": [
+                                { id: "topic1", name: "ভৌত রাশির ধারণা" },
+                                { id: "topic2", name: "পরিমাপ পদ্ধতি" },
+                                { id: "topic3", name: "একক ও মাত্রা" },
+                              ],
+                              "ch2": [
+                                { id: "topic4", name: "গতির প্রকার" },
+                                { id: "topic5", name: "বেগ ও ত্বরণ" },
+                              ],
+                            },
+                            Chemistry: {
+                              "ch3": [
+                                { id: "topic6", name: "রসায়নের ভূমিকা" },
+                                { id: "topic7", name: "রাসায়নিক পদার্থ" },
+                              ],
+                            },
+                          }
+                          const topics = animatedVideoTopics[m.subject]?.[m.chapterId] || []
+                          return topics.map((topic) => (
+                            <SelectItem key={topic.id} value={topic.id}>{topic.name}</SelectItem>
+                          ))
+                        })()}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ))}
+
+              <div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMappings((prev) => {
+                      const last = prev[prev.length - 1]
+                      return [
+                        ...prev,
+                        {
+                          classVal: "",
+                          phase: "",
+                          program: "",
+                          group: "",
+                          subject: last?.subject || "",
+                          chapterId: "",
+                          lectureClassId: "",
+                          liveExamId: "",
+                          topicId: "",
+                          isContentReady: false,
+                          fallbackClassVal: "",
+                          fallbackProgram: "",
+                          fallbackPhase: "",
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: "",
+                        },
+                      ]
+                    })
+                  }}
+                >
+                  + Add Another Mapping
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Report Card - Class, Academic Program, Subject, Chapter - No Fallback */}
+          {(qrType === "report_card") && (
+            <div className="space-y-6">
+              <Separator />
+              <h4 className="font-semibold">Destination Mappings</h4>
+
+              {mappings.map((m, idx) => (
+                <div key={idx} className="space-y-4 border rounded-md p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">Mapping #{idx + 1}</div>
+                    {mappings.length > 1 && (
+                      <Button variant="outline" size="sm" onClick={() => setMappings((prev) => prev.filter((_, i) => i !== idx))}>Remove</Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Program Class <span className="text-red-500">*</span></Label>
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", group: "", subject: "", chapterId: "" } : pm))} />
+                  </div>
+
+                  {isClassAbove8(m.classVal) && (
                     <div className="space-y-2">
-                      <Label>Topic (Optional)</Label>
+                      <Label>Group <span className="text-red-500">*</span></Label>
                       <Select
-                        value={m.topicId || "__none__"}
-                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, topicId: val === "__none__" ? "" : val } : pm))}
-                        disabled={!m.chapterId || m.chapterId === "__none__"}
+                        value={m.group || ""}
+                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, group: val } : pm))}
+                        disabled={!m.classVal}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={m.chapterId ? "Select Topic (optional)" : "Select Chapter first"} />
+                          <SelectValue placeholder="Select Group" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">None (Redirect to Chapter)</SelectItem>
-                          {m.subject && m.chapterId && m.chapterId !== "__none__" && (() => {
-                            // Get topics from mobile-app data structure
-                            // We need to import or replicate the animatedVideoTopics structure
-                            const animatedVideoTopics: Record<string, Record<string, Array<{ id: string; name: string }>>> = {
-                              Physics: {
-                                "ch1": [
-                                  { id: "topic1", name: "ভৌত রাশির ধারণা" },
-                                  { id: "topic2", name: "পরিমাপ পদ্ধতি" },
-                                  { id: "topic3", name: "একক ও মাত্রা" },
-                                ],
-                                "ch2": [
-                                  { id: "topic4", name: "গতির প্রকার" },
-                                  { id: "topic5", name: "বেগ ও ত্বরণ" },
-                                ],
-                              },
-                              Chemistry: {
-                                "ch3": [
-                                  { id: "topic6", name: "রসায়নের ভূমিকা" },
-                                  { id: "topic7", name: "রাসায়নিক পদার্থ" },
-                                ],
-                              },
-                            }
-                            const topics = animatedVideoTopics[m.subject]?.[m.chapterId] || []
-                            return topics.map((topic) => (
-                              <SelectItem key={topic.id} value={topic.id}>{topic.name}</SelectItem>
-                            ))
-                          })()}
+                          <SelectItem value="SCI">SCI</SelectItem>
+                          <SelectItem value="BS">BS</SelectItem>
+                          <SelectItem value="HUM">HUM</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   )}
+
+                  <div className="space-y-2">
+                    <Label>Academic Program <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.program}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, program: val, subject: "", chapterId: "" } : pm))
+                      }}
+                      disabled={!m.classVal || m.classVal === 'ssc' || m.classVal === 'hsc'}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.classVal ? "Select Program" : "Select Class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.classVal && m.classVal !== 'ssc' && m.classVal !== 'hsc' && data.academicPrograms[m.classVal as keyof typeof data.academicPrograms]?.map((prog) => (
+                          <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Subject <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.subject}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, subject: val, chapterId: "" } : pm))
+                      }}
+                      disabled={!m.program}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.program ? "Select Subject" : "Select Program first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.program && data.subjects[m.program as keyof typeof data.subjects]?.map((subj) => (
+                          <SelectItem key={subj} value={subj}>{subj}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Chapter <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.chapterId}
+                      onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, chapterId: val } : pm))}
+                      disabled={!m.subject}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.subject ? "Select Chapter" : "Select Subject first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.subject && (() => {
+                          // Collect all chapters from all phases for this subject
+                          const allChapters: Array<{id: string, name: string}> = []
+                          data.phases.forEach((phase) => {
+                            const phaseChapters = (data.chapters as any)[m.subject]?.[phase] || []
+                            phaseChapters.forEach((ch: any) => {
+                              if (!allChapters.find(c => c.id === ch.id)) {
+                                allChapters.push(ch)
+                              }
+                            })
+                          })
+                          return allChapters.map((ch) => (
+                            <SelectItem key={ch.id} value={ch.id}>{ch.name}</SelectItem>
+                          ))
+                        })()}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               ))}
+
+              <div>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMappings((prev) => {
+                      const last = prev[prev.length - 1]
+                      return [
+                        ...prev,
+                        {
+                          classVal: "",
+                          phase: "",
+                          program: last?.program || "",
+                          group: "",
+                          subject: last?.subject || "",
+                          chapterId: "",
+                          lectureClassId: "",
+                          liveExamId: "",
+                          topicId: "",
+                          isContentReady: false,
+                          fallbackClassVal: "",
+                          fallbackProgram: "",
+                          fallbackPhase: "",
+                          fallbackSubject: "",
+                          fallbackChapterId: "",
+                          fallbackLectureClassId: "",
+                          fallbackLiveExamId: "",
+                        },
+                      ]
+                    })
+                  }}
+                >
+                  + Add Another Mapping
+                </Button>
+              </div>
             </div>
           )}
 
@@ -1172,8 +1462,28 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
                   <div className="space-y-2">
                     <Label>Program Class <span className="text-red-500">*</span></Label>
-                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", subject: "", phase: "", chapterId: "", lectureClassId: "", fallbackProgram: "", fallbackPhase: "", fallbackChapterId: "" } : pm))} />
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", group: "", subject: "", phase: "", chapterId: "", lectureClassId: "", fallbackProgram: "", fallbackPhase: "", fallbackChapterId: "" } : pm))} />
                   </div>
+
+                  {isClassAbove8(m.classVal) && (
+                    <div className="space-y-2">
+                      <Label>Group <span className="text-red-500">*</span></Label>
+                      <Select
+                        value={m.group || ""}
+                        onValueChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, group: val } : pm))}
+                        disabled={!m.classVal}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SCI">SCI</SelectItem>
+                          <SelectItem value="BS">BS</SelectItem>
+                          <SelectItem value="HUM">HUM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Academic Program <span className="text-red-500">*</span></Label>
@@ -1443,6 +1753,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                           classVal: "",
                           phase: last?.phase || "",
                           program: last?.program || "",
+                          group: "",
                           subject: last?.subject || "",
                           chapterId: "",
                           lectureClassId: "",

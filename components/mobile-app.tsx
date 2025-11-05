@@ -115,7 +115,7 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
   const [activeQuizAnswers, setActiveQuizAnswers] = useState<Record<string, string>>({})
   const [quizSubmitted, setQuizSubmitted] = useState<{ score: number; total: number } | null>(null)
   const [quizResultsByChapter, setQuizResultsByChapter] = useState<Record<string, { score: number; total: number; solutionUrl?: string }>>({})
-  const [programSwitch, setProgramSwitch] = useState<{ targetProgram: string; next: { phase: string; subject: string; chapterId?: string; quiz?: any; animatedVideo?: boolean; liveExam?: boolean; liveExamId?: string; lectureClass?: boolean; lectureClassId?: string } } | null>(null)
+  const [programSwitch, setProgramSwitch] = useState<{ targetProgram: string; next: { phase: string; subject: string; chapterId?: string; quiz?: any; animatedVideo?: boolean; liveExam?: boolean; liveExamId?: string; lectureClass?: boolean; lectureClassId?: string; reportCard?: boolean } } | null>(null)
   const [paywall, setPaywall] = useState<{ requiredProgram: string } | null>(null)
   
   // Animated Video screens
@@ -151,6 +151,14 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
     isLive: boolean
     videoUrl?: string
     topics: Array<{ name: string }>
+  } | null>(null)
+
+  // Report Card screen
+  const [reportCardData, setReportCardData] = useState<{
+    subject: string
+    chapterName: string
+    chapterId: string
+    program?: string
   } | null>(null)
 
   // Shikho AI screen
@@ -316,6 +324,59 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
         program: resolvedProgram,
         hasParticipated: false, // In real app, check user's participation from API
         solutionPdfUrl: `https://example.com/solutions/${liveExamId}.pdf`, // In real app, get from API
+      })
+      setActiveTab("courses")
+      return
+    }
+
+    // Handle Report Card QR type
+    if (qrData.qrType === "report_card") {
+      let targetSubject = ""
+      let targetChapter = ""
+      let resolvedProgram = activeProgram
+
+      if (Array.isArray(qrData.mappings) && qrData.mappings.length) {
+        const forUser = qrData.mappings.find((m: any) => m.classVal === userClass) || qrData.mappings[0]
+        if (forUser) {
+          targetSubject = forUser.subject
+          targetChapter = forUser.chapterId
+          resolvedProgram = forUser.program
+        }
+      }
+
+      if (!targetSubject || !targetChapter) {
+        alert("Invalid report card QR mapping.")
+        return
+      }
+
+      if (resolvedProgram && resolvedProgram !== activeProgram) {
+        setProgramSwitch({ 
+          targetProgram: resolvedProgram, 
+          next: { 
+            phase: "Quarter 1", // Default phase for program switch
+            subject: targetSubject, 
+            chapterId: targetChapter,
+            reportCard: true
+          } 
+        })
+        return
+      }
+
+      if (resolvedProgram && entitlements[resolvedProgram] !== "full") {
+        setPaywall({ requiredProgram: resolvedProgram })
+        return
+      }
+
+      // Find chapter name (check all phases since phase is not stored)
+      const chapter = chapters.find((ch) => ch.id === targetChapter && ch.subject === targetSubject)
+      const chapterName = chapter?.name || targetChapter
+
+      // Set report card data
+      setReportCardData({
+        subject: targetSubject,
+        chapterName: chapterName,
+        chapterId: targetChapter,
+        program: resolvedProgram,
       })
       setActiveTab("courses")
       return
@@ -942,8 +1003,84 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                 </>
               )}
 
+              {/* Report Card Screen */}
+              {reportCardData && (
+                <>
+                  {/* Report Card Header */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <button 
+                      onClick={() => {
+                        setReportCardData(null)
+                        setActiveTab("home")
+                      }} 
+                      className="p-1"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex-1 text-center">
+                      <h1 className="text-lg font-semibold">চ্যাপ্টার রিপোর্ট কার্ড</h1>
+                    </div>
+                    <div className="w-10"></div>
+                  </div>
+
+                  {/* Report Card Content */}
+                  <Card className="bg-white p-6 text-center">
+                    {/* Report Card Icon */}
+                    <div className="flex justify-center mb-6">
+                      <div className="relative">
+                        {/* Report Card Icon with Grade A */}
+                        <div className="w-32 h-32 bg-gradient-to-br from-red-50 to-red-100 rounded-lg flex flex-col items-center justify-center border-2 border-red-200 shadow-sm">
+                          {/* Grade Circle */}
+                          <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mb-2">
+                            <span className="text-white text-2xl font-bold">A</span>
+                          </div>
+                          {/* Checkmarks */}
+                          <div className="flex flex-col gap-1 mt-1">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <div className="w-8 h-0.5 bg-red-300"></div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <div className="w-8 h-0.5 bg-red-300"></div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                              <div className="w-8 h-0.5 bg-red-300"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bengali Message */}
+                    <div className="space-y-2 text-gray-800">
+                      <p className="text-sm leading-relaxed">
+                        এই অধ্যায়ের কোন অ্যাক্টিভিটি না করায় তুমি
+                      </p>
+                      <p className="text-sm leading-relaxed font-medium">
+                        রিপোর্ট কার্ড মিস করেছো। পরবর্তী রিপোর্ট কার্ড
+                      </p>
+                      <p className="text-sm leading-relaxed">
+                        পেতে সময়মত ক্লাস, এক্সাম ও হোমওয়ার্কগুলো
+                      </p>
+                      <p className="text-sm leading-relaxed">
+                        কমপ্লিট করো।
+                      </p>
+                    </div>
+
+                    {/* Chapter Info */}
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        {reportCardData.subject} · {reportCardData.chapterName}
+                      </p>
+                    </div>
+                  </Card>
+                </>
+              )}
+
               {/* Regular Courses Content */}
-              {!animatedVideoScreen && !liveExamData && !lectureClassData && (
+              {!animatedVideoScreen && !liveExamData && !lectureClassData && !reportCardData && (
                 <>
                   {/* Subject header like the reference screen */}
                   <div className="flex items-center gap-2 mb-2">
@@ -1220,6 +1357,16 @@ export default function MobileApp({ qrDatabase, quizDatabase }: MobileAppProps) 
                         isLive: true,
                         videoUrl: `https://example.com/videos/${next.lectureClassId}.mp4`,
                         topics: [{ name: "Comprehension 1" }],
+                      })
+                      setActiveTab("courses")
+                    } else if (next.reportCard) {
+                      if (entitlements[programSwitch.targetProgram] !== "full") { setPaywall({ requiredProgram: programSwitch.targetProgram }); return }
+                      const chapter = chapters.find((ch) => ch.id === next.chapterId && ch.subject === next.subject)
+                      setReportCardData({
+                        subject: next.subject,
+                        chapterName: chapter?.name || next.chapterId || "",
+                        chapterId: next.chapterId || "",
+                        program: programSwitch.targetProgram,
                       })
                       setActiveTab("courses")
                     } else {

@@ -102,7 +102,7 @@ export default function CMSPanel({ qrDatabase, setQrDatabase, quizDatabase, setQ
                 activeMenu === "generate" ? "bg-purple-100 text-purple-700" : "hover:bg-muted"
               }`}
             >
-              Generate QR
+              Map QR
             </button>
             <button
               onClick={() => setActiveMenu("quiz")}
@@ -120,7 +120,7 @@ export default function CMSPanel({ qrDatabase, setQrDatabase, quizDatabase, setQ
       <main className="flex-1 p-6 overflow-y-auto">
         <div className="text-sm text-muted-foreground mb-4">
           DASHBOARD / <span className="font-semibold text-foreground">QR MANAGEMENT</span>
-          <span className="text-muted-foreground"> / {activeMenu === "generate" ? "Generate QR" : "QR Quiz"}</span>
+          <span className="text-muted-foreground"> / {activeMenu === "generate" ? "Map QR" : "QR Quiz"}</span>
         </div>
         {activeMenu === "generate" ? (
           <Card>
