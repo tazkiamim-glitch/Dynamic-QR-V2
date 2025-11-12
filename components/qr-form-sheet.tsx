@@ -120,6 +120,10 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageUrl, setImageUrl] = useState<string>("")
+  // Shikho AI specific fields
+  const [shikhoAiClassVal, setShikhoAiClassVal] = useState("")
+  const [shikhoAiGroup, setShikhoAiGroup] = useState("")
+  const [shikhoAiSubject, setShikhoAiSubject] = useState("")
 
   // Multiple destination mappings
   const [mappings, setMappings] = useState<any[]>([
@@ -146,7 +150,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
   // Mappings for QR Quiz workflow: only "who" (class/program), supports group selection like SSC/HSC
   const [quizMappings, setQuizMappings] = useState<any[]>([
-    { classVal: "", program: "" },
+    { classVal: "", program: "", group: "" },
   ])
   const classGroups = {
     topSingles: [
@@ -301,6 +305,9 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
         setImageUrl((editingQR as any).imageUrl || "")
         setImagePreview((editingQR as any).imageUrl || null)
         setImageFile(null)
+        setShikhoAiClassVal((editingQR as any).classVal || "")
+        setShikhoAiGroup((editingQR as any).group || "")
+        setShikhoAiSubject((editingQR as any).subject || "")
       }
 
       if (editingQR.qrType === "quiz") {
@@ -310,6 +317,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
           setQuizMappings(qm.map((m: any) => ({
             classVal: m.classVal || "",
             program: m.program || "",
+            group: m.group || "",
           })))
         }
       }
@@ -324,6 +332,9 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       setImageFile(null)
       setImagePreview(null)
       setImageUrl("")
+      setShikhoAiClassVal("")
+      setShikhoAiGroup("")
+      setShikhoAiSubject("")
       setMappings([
         {
           classVal: "",
@@ -343,7 +354,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
           fallbackLiveExamId: "",
         },
       ])
-      setQuizMappings([{ classVal: "", program: "" }])
+      setQuizMappings([{ classVal: "", program: "", group: "" }])
     }
   }, [editingQR, open])
 
@@ -377,6 +388,10 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
           alert(`Please complete Class and Program in Mapping #${idx + 1}`)
           return
         }
+        if (isClassAbove8(m.classVal) && !m.group) {
+          alert(`Please select a Group in Mapping #${idx + 1}`)
+          return
+        }
       }
       const qrId = editingQR?.id || (manualQrId?.trim() || `qrid_${Math.random().toString(36).substring(2, 11)}`)
       const selectedQuiz = quizDatabase.find((qq: any) => qq.id === selectedQuizId)
@@ -384,9 +399,9 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       const defaultName = `[QR QUIZ] ${quizName}`
       // Expand grouped classes into per-class mappings
       const expandedQuizMappings = quizMappings.flatMap((m) => {
-        if (m.classVal === 'ssc') return classGroups.ssc.map((c) => ({ classVal: c.value, program: m.program }))
-        if (m.classVal === 'hsc') return classGroups.hsc.map((c) => ({ classVal: c.value, program: m.program }))
-        return [{ classVal: m.classVal, program: m.program }]
+        if (m.classVal === 'ssc') return classGroups.ssc.map((c) => ({ classVal: c.value, program: m.program, group: m.group }))
+        if (m.classVal === 'hsc') return classGroups.hsc.map((c) => ({ classVal: c.value, program: m.program, group: m.group }))
+        return [{ classVal: m.classVal, program: m.program, group: m.group }]
       })
       const qrData = {
         id: qrId,
@@ -401,10 +416,22 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
       return
     }
 
-    // Shikho AI type - no destination mapping needed
+    // Shikho AI type - with class, group, and subject fields
     if (qrType === "shikho_ai") {
       if (!promptText.trim()) {
         alert("Please provide a prompt text")
+        return
+      }
+      if (!shikhoAiClassVal) {
+        alert("Please select a Class")
+        return
+      }
+      if (isClassAbove8(shikhoAiClassVal) && !shikhoAiGroup) {
+        alert("Please select a Group")
+        return
+      }
+      if (!shikhoAiSubject) {
+        alert("Please select a Subject")
         return
       }
 
@@ -422,6 +449,9 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
             status,
             promptText: promptText.trim(),
             imageUrl: base64String,
+            classVal: shikhoAiClassVal,
+            group: shikhoAiGroup,
+            subject: shikhoAiSubject,
           }
           onSubmit(qrData)
         }
@@ -442,6 +472,9 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
         status,
         promptText: promptText.trim(),
         imageUrl: imageUrl || "",
+        classVal: shikhoAiClassVal,
+        group: shikhoAiGroup,
+        subject: shikhoAiSubject,
       }
       onSubmit(qrData)
       return
@@ -454,8 +487,8 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
         return
       }
       for (const [idx, m] of mappings.entries()) {
-        if (!m.classVal || !m.subject || !m.chapterId || !m.topicId) {
-          alert(`Please fill all required fields (Subject, Chapter, and Topic) in Mapping #${idx + 1}`)
+        if (!m.classVal || !m.program || !m.subject || !m.chapterId || !m.topicId) {
+          alert(`Please fill all required fields (Program, Subject, Chapter, and Topic) in Mapping #${idx + 1}`)
           return
         }
         if (isClassAbove8(m.classVal) && !m.group) {
@@ -671,6 +704,9 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                 setImageFile(null)
                 setImagePreview(null)
                 setImageUrl("")
+              setShikhoAiClassVal("")
+              setShikhoAiGroup("")
+              setShikhoAiSubject("")
               }
             }}>
               <SelectTrigger>
@@ -736,8 +772,28 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                   </div>
                   <div className="space-y-2">
                     <Label>Program Class <span className="text-red-500">*</span></Label>
-                    <ProgramClassSelect value={m.classVal} onChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => (i === idx ? { ...pm, classVal: val } : pm)))} />
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => (i === idx ? { ...pm, classVal: val, group: "" } : pm)))} />
                   </div>
+
+                  {isClassAbove8(m.classVal) && (
+                    <div className="space-y-2">
+                      <Label>Group <span className="text-red-500">*</span></Label>
+                      <Select
+                        value={m.group || ""}
+                        onValueChange={(val) => setQuizMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, group: val } : pm))}
+                        disabled={!m.classVal}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SCI">SCI</SelectItem>
+                          <SelectItem value="BS">BS</SelectItem>
+                          <SelectItem value="HUM">HUM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Academic Program <span className="text-red-500">*</span></Label>
@@ -759,7 +815,7 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                 </div>
               ))}
               <div>
-                <Button variant="outline" onClick={() => setQuizMappings((prev) => [...prev, { classVal: "", program: "" }])}>+ Add Another Mapping</Button>
+                <Button variant="outline" onClick={() => setQuizMappings((prev) => [...prev, { classVal: "", program: "", group: "" }])}>+ Add Another Mapping</Button>
               </div>
             </div>
           )}
@@ -1055,6 +1111,61 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
               <Separator />
               <h4 className="font-semibold">Shikho AI Configuration</h4>
               
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Program Class <span className="text-red-500">*</span></Label>
+                  <ProgramClassSelect value={shikhoAiClassVal} onChange={(val) => { setShikhoAiClassVal(val); setShikhoAiGroup(""); setShikhoAiSubject("") }} />
+                </div>
+
+                {isClassAbove8(shikhoAiClassVal) && (
+                  <div className="space-y-2">
+                    <Label>Group <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={shikhoAiGroup || ""}
+                      onValueChange={(val) => setShikhoAiGroup(val)}
+                      disabled={!shikhoAiClassVal}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SCI">SCI</SelectItem>
+                        <SelectItem value="BS">BS</SelectItem>
+                        <SelectItem value="HUM">HUM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Subject <span className="text-red-500">*</span></Label>
+                  <Select
+                    value={shikhoAiSubject}
+                    onValueChange={(val) => setShikhoAiSubject(val)}
+                    disabled={!shikhoAiClassVal}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={shikhoAiClassVal ? "Select Subject" : "Select Class first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        // Get all unique subjects from all programs for the selected class
+                        if (!shikhoAiClassVal || shikhoAiClassVal === 'ssc' || shikhoAiClassVal === 'hsc') return null
+                        const programs = data.academicPrograms[shikhoAiClassVal as keyof typeof data.academicPrograms] || []
+                        const allSubjects = new Set<string>()
+                        programs.forEach((prog) => {
+                          const subjects = data.subjects[prog as keyof typeof data.subjects] || []
+                          subjects.forEach((subj) => allSubjects.add(subj))
+                        })
+                        return Array.from(allSubjects).map((subj) => (
+                          <SelectItem key={subj} value={subj}>{subj}</SelectItem>
+                        ))
+                      })()}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="promptText">Prompt Text <span className="text-red-500">*</span></Label>
                 <Textarea
@@ -1141,7 +1252,27 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
 
                   <div className="space-y-2">
                     <Label>Program Class <span className="text-red-500">*</span></Label>
-                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, group: "", subject: "", chapterId: "", topicId: "" } : pm))} />
+                    <ProgramClassSelect value={m.classVal} onChange={(val) => setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, classVal: val, program: "", group: "", subject: "", chapterId: "", topicId: "" } : pm))} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Academic Program <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={m.program}
+                      onValueChange={(val) => {
+                        setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, program: val, subject: "", chapterId: "", topicId: "" } : pm))
+                      }}
+                      disabled={!m.classVal || m.classVal === 'ssc' || m.classVal === 'hsc'}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={m.classVal ? "Select Program" : "Select Class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {m.classVal && m.classVal !== 'ssc' && m.classVal !== 'hsc' && data.academicPrograms[m.classVal as keyof typeof data.academicPrograms]?.map((prog) => (
+                          <SelectItem key={prog} value={prog}>{prog}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {isClassAbove8(m.classVal) && (
@@ -1171,14 +1302,13 @@ export default function QRFormSheet({ open, onOpenChange, onSubmit, editingQR, q
                       onValueChange={(val) => {
                         setMappings((prev) => prev.map((pm, i) => i === idx ? { ...pm, subject: val, chapterId: "", topicId: "" } : pm))
                       }}
-                      disabled={!m.classVal}
+                      disabled={!m.program}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={m.classVal ? "Select Subject" : "Select Class first"} />
+                        <SelectValue placeholder={m.program ? "Select Subject" : "Select Program first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {/* Show all subjects regardless of program */}
-                        {m.classVal && Array.from(new Set(Object.values(data.subjects).flat())).map((subj) => (
+                        {m.program && data.subjects[m.program as keyof typeof data.subjects]?.map((subj) => (
                           <SelectItem key={subj} value={subj}>{subj}</SelectItem>
                         ))}
                       </SelectContent>

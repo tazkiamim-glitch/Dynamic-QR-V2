@@ -49,6 +49,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
   // Meta fields (refactored to requested set)
   const [name, setName] = useState("")
   const [classVal, setClassVal] = useState("")
+  const [group, setGroup] = useState("")
   const [program, setProgram] = useState("")
   const [phase, setPhase] = useState("")
   const [subject, setSubject] = useState("")
@@ -72,6 +73,11 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
       { value: "c11", label: "Class 11" },
       { value: "c12", label: "Class 12" },
     ],
+  }
+
+  // Helper function to check if class is above 8
+  const isClassAbove8 = (classVal: string) => {
+    return classVal === "c9" || classVal === "c10" || classVal === "c11" || classVal === "c12"
   }
 
   function ProgramClassSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -144,6 +150,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
     setEditingId(null)
     setName("")
     setClassVal("")
+    setGroup("")
     setProgram("")
     setPhase("")
     setSubject("")
@@ -164,6 +171,7 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
     setEditingId(q.id)
     setName(q.name || "")
     setClassVal(q.classVal || "")
+    setGroup(q.group || "")
     setProgram(q.program || "")
     setPhase(q.phase || "")
     setSubject(q.subject || "")
@@ -201,9 +209,14 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
       alert("Fill all required fields.")
       return
     }
+    if (isClassAbove8(classVal) && !group) {
+      alert("Please select a Group")
+      return
+    }
     const meta = {
       name,
       classVal, // can be a single class (c6..c12) or a group token ('ssc' | 'hsc')
+      group,
       program,
       phase,
       subject,
@@ -341,8 +354,28 @@ export default function QRQuizBuilder({ quizDatabase, setQuizDatabase }: QRQuizB
               </div>
               <div className="space-y-2">
                 <Label>Program Class</Label>
-                <ProgramClassSelect value={classVal} onChange={(v) => { setClassVal(v); setProgram(""); setSubject(""); setChapterId("") }} />
+                <ProgramClassSelect value={classVal} onChange={(v) => { setClassVal(v); setGroup(""); setProgram(""); setSubject(""); setChapterId("") }} />
               </div>
+              
+              {isClassAbove8(classVal) && (
+                <div className="space-y-2">
+                  <Label>Group <span className="text-red-500">*</span></Label>
+                  <Select
+                    value={group || ""}
+                    onValueChange={(val) => setGroup(val)}
+                    disabled={!classVal}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SCI">SCI</SelectItem>
+                      <SelectItem value="BS">BS</SelectItem>
+                      <SelectItem value="HUM">HUM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               
               <div className="space-y-2">
                 <Label>Subject</Label>
